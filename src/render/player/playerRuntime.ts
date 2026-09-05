@@ -30,6 +30,16 @@ export interface PlayerRuntime {
   toolPressed: boolean;
   /** The full solver state, for the perf overlay and debug readouts. */
   state: MovementState | null;
+  /**
+   * Shake the camera by this much on the next frame, then reset to zero.
+   *
+   * A request rather than a call, so gameplay code never has to reach into
+   * the camera -- and so the camera stays the one place that decides whether
+   * shake is allowed at all (it is off under reduced motion).
+   */
+  shakeRequest: number;
+  /** Seconds of tumble left, so the avatar knows to fall over. */
+  tumbleRemaining: number;
 }
 
 export const playerRef: PlayerRuntime = {
@@ -50,4 +60,6 @@ export const playerRef: PlayerRuntime = {
   interactPressed: false,
   toolPressed: false,
   state: null,
+  shakeRequest: 0,
+  tumbleRemaining: 0,
 };

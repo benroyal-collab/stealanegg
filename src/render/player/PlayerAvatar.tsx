@@ -105,9 +105,9 @@ export function PlayerAvatar(): React.ReactElement {
       g.rotation.x = MathUtils.damp(g.rotation.x, 0, 12, dt);
     }
 
-    if (carried.current) {
-      carried.current.visible = false;
-    }
+    // The carried egg is rendered by BiomeRuntime at world scale, not parented
+    // to the hand -- so the hand's placeholder stays hidden.
+    if (carried.current) carried.current.visible = false;
   });
 
   return (

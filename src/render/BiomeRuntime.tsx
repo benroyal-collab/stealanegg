@@ -41,6 +41,7 @@ import { ThrownTools } from './entities/ThrownTools';
 import { habitatSlots } from '../sim/economy';
 import { RARITY_COLOURS } from '../data/mutations';
 import { audioDirector } from '../systems/audio/director';
+import { burst, Particles } from './entities/Particles';
 
 export interface BiomeRuntimeProps {
   biome: BiomeId;
@@ -222,6 +223,9 @@ export function BiomeRuntime({
       onPrompt(nextPrompt);
     }
 
+    // The runtime owns the tumble clock; the avatar reads it.
+    playerRef.tumbleRemaining = rt.tumbleRemaining;
+
     const carriedRarity = rt.carried?.rarity ?? null;
     if (carriedRarity !== lastCarried.current) {
       lastCarried.current = carriedRarity;
@@ -299,6 +303,7 @@ export function BiomeRuntime({
       case 'grabbed': {
         if (event.roll === undefined) break;
         audioDirector.play('egg-grab');
+        burst('sparkle', playerRef.position.x, playerRef.position.y + 0.8, playerRef.position.z);
         const species = requireSpecies(event.roll.speciesId);
         caption('egg', `A ${species.name} egg! Take it home.`, 3.5);
         break;
@@ -312,6 +317,12 @@ export function BiomeRuntime({
       case 'caught': {
         recordCatch();
         audioDirector.play('caught');
+        // Ask for a shake and a tumble. The camera and the movement solver
+        // each decide what to do with the request -- shake is suppressed
+        // under reduced motion, and the tumble is the solver's own state.
+        playerRef.shakeRequest = 0.7;
+        playerRef.tumbleRemaining = GUARDIAN.tumbleSeconds;
+        burst('dust', playerRef.position.x, playerRef.position.y + 0.3, playerRef.position.z);
         toast('shoo', 'Oops! You dropped the egg. Nothing lost.', 'info');
         break;
       }
@@ -351,6 +362,7 @@ export function BiomeRuntime({
   return (
     <group>
       <EggArcClock />
+      <Particles />
 
       {rt.nests.map((nest) => (
         <NestEntity

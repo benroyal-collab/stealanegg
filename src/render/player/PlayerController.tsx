@@ -14,6 +14,7 @@ import { PerspectiveCamera, Vector3 } from 'three';
 import { MOVEMENT } from '../../data/balance';
 import { noiseRadiusFor } from '../../sim/guardian';
 import {
+  addShake,
   applyLook,
   createCameraOutput,
   createCameraState,
@@ -25,6 +26,7 @@ import {
 } from '../../systems/camera';
 import type { InputManager } from '../../systems/input';
 import {
+  beginTumble,
   createMovementState,
   stepMovement,
   type Displacement,
@@ -184,6 +186,19 @@ export function PlayerController({
 
     const frame = input.consume();
     applyLook(cameraState, frame.lookX, frame.lookY);
+
+    // Gameplay asks for shake; the camera decides whether to give it. Under
+    // reduced motion, stepCamera ignores it entirely.
+    if (playerRef.shakeRequest > 0) {
+      addShake(cameraState, playerRef.shakeRequest);
+      playerRef.shakeRequest = 0;
+    }
+
+    // A catch puts the solver into its tumble, which is what makes the
+    // recovery read as comic rather than punishing.
+    if (playerRef.tumbleRemaining > 0 && movement.stance !== 'tumbling') {
+      beginTumble(movement, playerRef.tumbleRemaining);
+    }
 
     const translation = rb.translation();
     const feetY = translation.y - UP_OFFSET;
