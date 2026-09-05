@@ -8,6 +8,13 @@ test('the app boots and renders a WebGL canvas', async ({ page }) => {
   page.on('pageerror', (err) => errors.push(err.message));
 
   await page.goto('/');
+
+  // The title screen comes first, and it is the only thing a child sees until
+  // they press Play.
+  const play = page.getByRole('button', { name: /play|carry on/i });
+  await expect(play).toBeVisible();
+  await play.click();
+
   const canvas = page.locator('canvas');
   await expect(canvas).toBeVisible();
 

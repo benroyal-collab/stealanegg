@@ -17,6 +17,7 @@ import type { QualitySettings } from '../quality';
 import { SunRig } from '../lighting/SunRig';
 import { ProceduralSky, sunDirectionFor } from '../sky/ProceduralSky';
 import { FoliageField } from './Foliage';
+import { FoliageColliders } from './FoliageColliders';
 import { Terrain } from './Terrain';
 import { Water } from './Water';
 import { generateTerrain, sampleHeight, type TerrainField } from './terrain';
@@ -106,6 +107,18 @@ export function Biome({
         density={quality.foliageDensity}
         drawDistance={quality.foliageDrawDistance}
         reducedMotion={reducedMotion}
+        exclusions={exclusions}
+      />
+      {/*
+        Colliders for the solid layers only. Density is pinned to 1 rather
+        than following the quality preset: a tree you can walk through on Low
+        and not on High would be a different *game*, not a prettier one.
+      */}
+      <FoliageColliders
+        layers={def.foliage}
+        field={field}
+        seed={hashString(`${biome}-foliage`)}
+        density={1}
         exclusions={exclusions}
       />
     </group>

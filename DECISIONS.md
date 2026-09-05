@@ -128,3 +128,110 @@ Noted in `CLAUDE.md` as a rule, not left as folklore.
 - **The greybox gym stays in the build.** It is reachable from the Parent
   Panel as a debug room. Every obstacle in it exists to exercise one feel
   target, and that is worth keeping around permanently.
+
+## M2 — The look
+
+### Four bugs that only a screenshot could have found
+
+Every one of these compiled, passed lint, passed 121 unit tests, and produced
+a running game. They were found by looking at the output.
+
+1. **`three-stdlib` 2.36.1's CSM is broken twice against three 0.185.** Its
+   published bundle mangled `get lights_pars_begin()` into a method named
+   `getlights_pars_begin()`, so `CSMShader.lights_pars_begin` is `undefined`
+   and `injectInclude()` assigns that over three's chunk — globally, killing
+   every lit material in the process. Its replacement chunk is also written
+   against the `GeometricContext` API three removed. Wrote our own CSM rather
+   than maintain a fork of a core lighting chunk.
+
+2. **Our CSM declared locals inside three's unrolled light loop.** three's
+   `#pragma unroll_loop_start` expands the body N times into the _same_ scope,
+   which is why three's own code declares `DirectionalLight directionalLight;`
+   outside the loop. One cascade compiled; three cascades failed with a
+   redefinition error. So the Low preset looked fine and High rendered
+   nothing — the worst possible failure shape, because the cheap check passes.
+
+3. **`csmDepth = -vViewPosition.z` had the sign backwards.** three sets
+   `vViewPosition = -mvPosition.xyz`, so it is already positive in front of
+   the camera. Negating it made every depth negative, no cascade ever claimed
+   a fragment, and _the sun silently stopped contributing at every quality
+   level_. The scene still rendered — lit by ambient and the environment map —
+   which reads as "flat lighting", not as a bug.
+
+4. **The shadow frustum was measured in one space and applied in another.**
+   Bounds were computed in light space around the world origin, then the light
+   was placed somewhere else entirely, so no cascade pointed at the camera.
+
+**What I changed as a result:** the screenshot gate now asserts a clean
+console at every quality preset. Bug 2 would have been caught in one run by
+that assertion, and I spent three rounds of looking at pictures without
+finding it. A shader that fails to compile still produces a screenshot — just
+one with the geometry missing — so byte-size checks and eyeballs are both
+blind to it.
+
+### The visual pass itself
+
+The first render was a dark green plane with pale cones on it. What actually
+moved it:
+
+- **Fog was drowning the scene.** Exponential fog at 0.017 over a 150m map
+  leaves 65% fog at 60 metres. Down to 0.0055, and the fog colour matched to
+  the horizon tint rather than a neutral grey — a mismatch draws a hard band
+  where the terrain's fade meets the sky dome.
+- **Ground albedos were too dark for ACES.** `#3f4a2c` is a plausible number
+  for grass and it tone-maps to mud. Raised across all three biomes.
+- **The sanctuary was in a bowl.** The terrain's radial apron flattened the
+  centre towards zero while the rim rose, so the opening shot was the inside
+  of a hill. It now flattens towards a raised plateau, and the sanctuary is a
+  lookout.
+- **Grass had no alpha cutout**, so every blade was a solid rectangle and a
+  meadow looked like scattered paper. Generating a cutout texture — a few
+  tapered blades with a root-to-tip gradient baked into RGB — was the single
+  biggest visual win in the project.
+- **Trunk and leaf shared one tint**, because a tree is one instanced mesh
+  with one per-instance colour. Tagging vertices with `aPart` (0 = wood, 1 =
+  leaf) and mixing in the shader costs nothing and is what makes a birch stand
+  read as birches.
+- **Ambient was swamping the key.** At 0.95 hemisphere against 4.6 sun there
+  were no readable cast shadows. Now 0.45 against 6.2.
+- **SSAO intensity was 22.** That is a multiplier, not a percentage: it drove
+  occlusion to full across the whole frame and multiplied the scene to black.
+
+### Honest assessment of where the look landed
+
+It reads as a real place at dawn — layered canopies, birch trunks catching the
+low sun, grass tufts, mist in the distance, a warm sky. It does not read as a
+_console_ game. The gap is in the things a procedural pipeline is worst at:
+the trees are recognisably parametric blobs, the terrain has visible
+tessellation on its long slopes, and there is no hand-authored composition
+anywhere — no clearing that was placed because it framed well.
+
+That is the cost of decision D1, and it is the one I would revisit first with
+more time. The renderer underneath it is genuinely good; what it is rendering
+is the limit.
+
+## M5 — Cover that actually works
+
+Instanced foliage has no colliders, which is right for grass and wrong for a
+tree: without one a birch is scenery a guardian sees straight through. Cover
+that does not break the ray is the most frustrating thing a stealth game can
+do.
+
+- **Solid layers get a real collider each** — trunks, rocks, ruins, cacti. A
+  few hundred capsules is nothing. Their density is pinned to 1 regardless of
+  quality preset: a tree you can walk through on Low and not on High would be
+  a different game, not a prettier one.
+- **Soft cover is a density grid**, built from the same scatter the renderer
+  uses. A guardian's ray samples it and accumulates; enough density near the
+  player and the line is broken. Eye height decides it, which is Mirrormere's
+  signature mechanic in one condition: standing up in the reeds does not hide
+  you, and crouching does.
+
+## M6 — Onboarding
+
+- **The title screen gates the game, and the tests press Play.** Forcing the
+  phase in test setup would mean a broken Play button fails one test instead
+  of all of them.
+- **The tutorial is five lines and clears itself.** No "click Next", no gate,
+  no quiz. A child who ignores it entirely can still finish the game on the
+  prompts alone — which is what the cold-start gate actually asserts.

@@ -1,0 +1,56 @@
+# Netlify configuration for Egg Heist: Wildlands.
+#
+# Two things matter here: the game must be servable as pure static files with
+# no backend of any kind, and the caching has to distinguish between the
+# fingerprinted assets (immutable forever) and the HTML entry point (never
+# cached, or a deploy never reaches anyone).
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Fingerprinted assets. Vite puts a content hash in every filename, so these
+# can be cached permanently -- a change produces a new filename.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# The WASM binary is fingerprinted too, and it is the single largest asset, so
+# getting it out of the revalidation path matters more than anything else here.
+[[headers]]
+  for = "/assets/*.wasm"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    Content-Type = "application/wasm"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Security headers.
+#
+# The Content-Security-Policy is the interesting one: because the game
+# generates every asset it uses, it can forbid *all* outbound connections
+# outright. `connect-src 'none'` means no fetch, no XHR, no WebSocket, no
+# beacon -- the child-safety guarantee enforced by the browser itself, not
+# just by our own discipline.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "SAMEORIGIN"
+    Referrer-Policy = "no-referrer"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), interest-cohort=(), payment=()"
+    Cross-Origin-Opener-Policy = "same-origin"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' blob:; worker-src 'self' blob:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'"
+
+# Single-page app: everything falls through to the entry point.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

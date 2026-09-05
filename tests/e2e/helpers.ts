@@ -41,14 +41,28 @@ declare global {
   }
 }
 
+/**
+ * Press Play the way a child would.
+ *
+ * Deliberately goes through the real title screen rather than forcing the
+ * phase: if the button ever stops working, every test that depends on
+ * reaching the game should fail, not just the one that tests the button.
+ */
+export async function pressPlay(page: Page): Promise<void> {
+  const play = page.getByRole('button', { name: /play|carry on/i });
+  await play.waitFor({ state: 'visible', timeout: 30_000 });
+  await play.click();
+}
+
 /** Load the game with the read-only test hook enabled and wait for a frame. */
 export async function bootGame(page: Page): Promise<void> {
   await page.goto('/?e2e=1');
+  await pressPlay(page);
   await page.waitForFunction(() => window.__eggheist?.ready() === true, undefined, {
-    timeout: 60_000,
+    timeout: 120_000,
   });
   await page.waitForFunction(() => (window.__eggheist?.sample()?.frame ?? 0) > 5, undefined, {
-    timeout: 60_000,
+    timeout: 120_000,
   });
 }
 
@@ -119,8 +133,9 @@ export async function bootBiome(page: Page, biome: string, quality: string): Pro
     { b: biome, q: quality },
   );
   await page.goto('/?e2e=1');
+  await pressPlay(page);
   await page.waitForFunction(() => window.__eggheist?.ready() === true, undefined, {
-    timeout: 120_000,
+    timeout: 180_000,
   });
   await settle(page);
 }

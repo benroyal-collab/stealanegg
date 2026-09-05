@@ -27,6 +27,8 @@ import {
   type LoopRuntime,
 } from '../systems/loop';
 import { scatterPlacements } from '../systems/spawn';
+import { buildConcealment, softCoverBlocks } from '../systems/concealment';
+import { hashString } from '../sim/rng';
 import { useGame } from '../state/store';
 import { playerRef } from './player/playerRuntime';
 import { sampleHeight, type TerrainField } from './world/terrain';
@@ -120,6 +122,15 @@ export function BiomeRuntime({
   const rng = useMemo(() => new Rng(`${biome}-live`), [biome]);
 
   /*
+   * Soft cover. Built from the same scatter the renderer uses, so the reeds a
+   * child can see are the reeds that actually hide them.
+   */
+  const concealment = useMemo(
+    () => buildConcealment(def.foliage, field, hashString(`${biome}-foliage`), 1),
+    [def.foliage, field, biome],
+  );
+
+  /*
    * Structural changes -- a nest gaining or losing its egg -- need a React
    * render. Transforms do not: each entity reads the mutable runtime in its
    * own frame loop, so guardians move at sixty hertz while this tree
@@ -137,6 +148,7 @@ export function BiomeRuntime({
    */
   const hasLineOfSight = useCallback(
     (from: Vec2, fromY: number, to: Vec2, toY: number): boolean => {
+      // Hard cover first: trunks, rocks, ruins and the terrain itself.
       scratchFrom.set(from.x, fromY, from.z);
       scratchTo.set(to.x, toY, to.z);
       scratchDir.subVectors(scratchTo, scratchFrom);
@@ -144,10 +156,15 @@ export function BiomeRuntime({
       if (distance < 0.001) return true;
       scratchDir.multiplyScalar(1 / distance);
       const ray = new rapier.Ray(scratchFrom, scratchDir);
-      const hit = world.castRay(ray, distance - 0.4, true);
-      return hit === null;
+      if (world.castRay(ray, distance - 0.4, true) !== null) return false;
+
+      // Then soft cover. Eye height is what decides it: standing up in the
+      // reeds does not hide you, and crouching does.
+      const crouching = playerRef.stance === 'crouched' || playerRef.stance === 'sliding';
+      const eyeHeight = crouching ? 0.75 : 1.45;
+      return !softCoverBlocks(concealment, from, to, toY - eyeHeight, eyeHeight);
     },
-    [world, rapier],
+    [world, rapier, concealment],
   );
 
   useFrame((_state, rawDelta) => {
