@@ -22,6 +22,15 @@ export default defineConfig({
   reporter: [['list']],
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
+    /*
+     * Playwright has no default action timeout, so a locator call for an
+     * element that never appears blocks until the whole test's budget is
+     * gone and then reports "target page closed" -- which reads as a browser
+     * crash rather than a missing element. Thirty seconds is generous next to
+     * anything this suite legitimately waits for, and every real wait here
+     * passes its own longer timeout explicitly.
+     */
+    actionTimeout: 30_000,
     trace: 'off',
     video: 'off',
     launchOptions: {

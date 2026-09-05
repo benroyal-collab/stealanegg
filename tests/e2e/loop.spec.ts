@@ -64,7 +64,9 @@ async function readIncubator(page: Page): Promise<{ remaining: number; total: nu
 
 /** Drop the incubator to nearly zero and reload, so the egg is ready to collect. */
 async function windIncubatorForward(page: Page): Promise<void> {
-  await page.evaluate(() => {
+  // Init script, not evaluate-then-reload: the app persists on pagehide and
+  // would write the un-wound incubator straight back over this.
+  await page.addInitScript(() => {
     const raw = window.localStorage.getItem('egg-heist-wildlands/save');
     if (raw === null) return;
     const save = JSON.parse(raw) as { incubator?: { remaining: number } | null };
@@ -79,107 +81,156 @@ async function windIncubatorForward(page: Page): Promise<void> {
   await settle(page, 4);
 }
 
+/**
+ * Take one short step, then press interact if the prompt says what we want.
+ *
+ * Counting before reading matters: `locator.textContent()` waits for the
+ * element to exist, and Playwright has no default action timeout, so calling
+ * it while the prompt is absent does not return an empty string -- it blocks.
+ * A deposit loop written that way sat for twenty-five minutes and then
+ * reported "target page closed", which looks nothing like "not there yet".
+ */
+async function stepAndTry(
+  page: Page,
+  prompt: ReturnType<Page['locator']>,
+  input: Parameters<typeof drive>[1],
+  wanted: RegExp,
+): Promise<boolean> {
+  await drive(page, input, 300);
+  if ((await prompt.count()) === 0) return false;
+  if (!wanted.test((await prompt.textContent()) ?? '')) return false;
+  await stopMoving(page);
+  await page.evaluate(() => window.__eggheist?.setVirtualInput({ interact: true }));
+  await hold(page, 900);
+  return true;
+}
+
 test('the full loop runs end to end and the save round-trips', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message.split('\n')[0] ?? ''));
 
+  /*
+   * Relaxed difficulty, deliberately.
+   *
+   * The first run of this gate walked out, grabbed the egg, and was caught by
+   * the Broody Hen guarding nest zero -- which drops what you are carrying.
+   * The player then walked all the way home empty and the deposit prompt
+   * never appeared, reported as "no egg was ever recovered".
+   *
+   * That is the game working: getting caught costs the run. But this gate is
+   * about whether steal-hatch-place-earn-upgrade is wired together, and the
+   * guardian AI has its own tests. So it plays on the difficulty a child who
+   * wants to be left alone would pick, and retries the run if it loses one.
+   */
+  await page.addInitScript(() => {
+    /*
+     * Seed only when there is nothing there.
+     *
+     * An init script runs on *every* navigation, and this test reloads twice
+     * mid-run. Written unconditionally, it wiped the sanctuary each time --
+     * the heist succeeded and then the money assertion read zero, because the
+     * save it was reading had been created a second earlier.
+     */
+    if (window.localStorage.getItem('egg-heist-wildlands/save') !== null) return;
+    window.localStorage.setItem(
+      'egg-heist-wildlands/save',
+      JSON.stringify({
+        version: 1,
+        currentBiome: 'glade',
+        settings: { quality: 'low', difficulty: 'relaxed', captions: true },
+      }),
+    );
+  });
   await bootGame(page);
 
-  // --- steal --------------------------------------------------------------
-  // Explore until a nest is in reach, then grab.
   const prompt = page.locator('.prompt');
-  const headings = [
-    { moveY: -1 },
-    { moveX: 1, moveY: -0.6 },
-    { moveX: 1 },
-    { moveX: 1, moveY: 0.6 },
-    { moveY: 1 },
-    { moveX: -1, moveY: 0.6 },
-    { moveX: -1 },
-    { moveX: -1, moveY: -0.6 },
-  ];
 
   /*
-   * Straight ahead first, then sweep.
+   * One attempt at the whole outbound run: walk out, grab, carry home,
+   * deposit. Returns whether the egg made it into the incubator.
    *
-   * Nest zero is eighteen metres directly in front of the spawn in every
-   * biome, so the walk a child would actually take is also the fastest route
-   * for this test. Rotating through eight headings from the first step just
-   * wanders in circles around the sanctuary and runs out of laps.
-   *
-   * Short legs either way: the grab prompt only exists inside a 2.6 metre
-   * radius, and a leg longer than that steps over the window it is hunting
-   * for. See the same note in coldstart.spec.ts.
+   * It is a function because a run can legitimately fail -- a guardian that
+   * catches you takes the egg back -- and the gate is about the loop being
+   * wired together, not about winning the first time.
    */
-  let grabbed = false;
-  for (let leg = 0; leg < 20 && !grabbed; leg++) {
-    await drive(page, { moveY: -1, sprint: true }, 300);
-    if ((await prompt.count()) === 0) continue;
-    if (!/pick up/i.test((await prompt.textContent()) ?? '')) continue;
-    await stopMoving(page);
-    await page.evaluate(() => window.__eggheist?.setVirtualInput({ interact: true }));
-    await hold(page, 1500);
-    grabbed = true;
-  }
+  async function attemptHeist(): Promise<boolean> {
+    /*
+     * Straight ahead first, then sweep.
+     *
+     * Nest zero is eighteen metres directly in front of the spawn in every
+     * biome, so the walk a child would actually take is also the fastest
+     * route for this test. Rotating through eight headings from the first
+     * step just wanders in circles around the sanctuary.
+     *
+     * Short legs either way: the grab prompt only exists inside a 2.6 metre
+     * radius, and a leg longer than that steps over the window it is hunting
+     * for. See the same note in coldstart.spec.ts.
+     */
+    const headings = [
+      { moveY: -1 },
+      { moveX: 1, moveY: -0.6 },
+      { moveX: 1 },
+      { moveX: 1, moveY: 0.6 },
+      { moveY: 1 },
+      { moveX: -1, moveY: 0.6 },
+      { moveX: -1 },
+      { moveX: -1, moveY: -0.6 },
+    ];
 
-  for (let lap = 0; lap < 12 && !grabbed; lap++) {
-    for (const heading of headings) {
-      await drive(page, { ...heading, sprint: true }, 300);
-      if ((await prompt.count()) === 0) continue;
-      const text = (await prompt.textContent()) ?? '';
-      if (!/pick up/i.test(text)) continue;
-      await stopMoving(page);
-      await page.evaluate(() => window.__eggheist?.setVirtualInput({ interact: true }));
-      await hold(page, 1500);
-      grabbed = true;
-      break;
+    let grabbed = false;
+    for (let leg = 0; leg < 22 && !grabbed; leg++) {
+      grabbed = await stepAndTry(page, prompt, { moveY: -1, sprint: true }, /pick up/i);
     }
+    for (let lap = 0; lap < 4 && !grabbed; lap++) {
+      for (const heading of headings) {
+        grabbed = await stepAndTry(page, prompt, { ...heading, sprint: true }, /pick up/i);
+        if (grabbed) break;
+      }
+    }
+    await stopMoving(page);
+    if (!grabbed) return false;
+
+    // --- carry it home ----------------------------------------------------
+    // Re-aim at the origin every leg. Twenty metres at six metres a second is
+    // four seconds of simulated time; the extra legs are headroom for trees.
+    for (let leg = 0; leg < 20; leg++) {
+      const state = await page.evaluate(() => window.__eggheist?.sample() ?? null);
+      if (state === null) break;
+      const distance = Math.hypot(state.x, state.z);
+      // eslint-disable-next-line no-console
+      console.log(`home ${leg}: x=${state.x.toFixed(1)} z=${state.z.toFixed(1)}`);
+      if (distance < 4) break;
+      // The virtual stick is in camera space and the test never rotates the
+      // camera, so world space and stick space agree.
+      await drive(
+        page,
+        { moveX: -state.x / distance, moveY: -state.z / distance, sprint: true },
+        900,
+      );
+    }
+    await stopMoving(page);
+
+    // --- deposit ----------------------------------------------------------
+    // Nudge around the incubator until the deposit prompt appears. Short
+    // nudges: it is a 3.2 metre window and a longer step walks through it.
+    const nudges = [{ moveY: -1 }, { moveX: -0.7, moveY: -0.7 }, { moveX: 0.7 }, { moveY: 1 }];
+    for (let i = 0; i < 24; i++) {
+      const nudge = nudges[i % nudges.length]!;
+      if (await stepAndTry(page, prompt, nudge, /put the egg in/i)) return true;
+    }
+    await stopMoving(page);
+    return false;
   }
-  await stopMoving(page);
-  expect(grabbed, 'never found a nest to grab from').toBe(true);
 
-  // --- carry it home ------------------------------------------------------
-  // The sanctuary is at the origin, so steer back towards it, re-aiming every
-  // leg. Twenty metres at six metres a second is about four seconds of
-  // simulated time; the extra legs are headroom for steering round trees.
-  for (let attempt = 0; attempt < 20; attempt++) {
-    const sample = await page.evaluate(() => window.__eggheist?.sample() ?? null);
-    if (sample === null) break;
-    const distance = Math.hypot(sample.x, sample.z);
-    // eslint-disable-next-line no-console
-    console.log(`home ${attempt}: x=${sample.x.toFixed(1)} z=${sample.z.toFixed(1)}`);
-    if (distance < 4) break;
-
-    // Point at the origin. The virtual stick is in camera space and the test
-    // never rotates the camera, so world space and stick space agree.
-    const moveX = -sample.x / distance;
-    const moveY = -sample.z / distance;
-    await drive(page, { moveX, moveY, sprint: true }, 900);
-  }
-  await stopMoving(page);
-  await hold(page, 600);
-
-  // --- deposit ------------------------------------------------------------
-  // Nudge around the incubator until the deposit prompt appears.
-  // Short nudges: the deposit prompt is a 3.2 metre window and a longer step
-  // walks through it between checks.
   let deposited = false;
-  const nudges = [{ moveY: -1 }, { moveX: -0.7, moveY: -0.7 }, { moveX: 0.7 }, { moveY: 1 }];
-  for (let i = 0; i < 24 && !deposited; i++) {
-    const nudge = nudges[i % nudges.length]!;
-    await drive(page, nudge, 300);
-    await stopMoving(page);
-    const text = (await prompt.textContent().catch(() => '')) ?? '';
-    if (/put the egg in/i.test(text)) {
-      await page.evaluate(() => window.__eggheist?.setVirtualInput({ interact: true }));
-      await hold(page, 1500);
-      deposited = true;
-    }
+  for (let attempt = 0; attempt < 3 && !deposited; attempt++) {
+    deposited = await attemptHeist();
   }
+  expect(deposited, 'three runs and the egg never reached the incubator').toBe(true);
 
   const afterSteal = await readSave(page);
   expect(afterSteal.eggs, 'no egg was ever recovered').toBeGreaterThan(0);
-  expect(deposited || afterSteal.incubating || afterSteal.creatures > 0).toBe(true);
+  expect(afterSteal.incubating || afterSteal.creatures > 0).toBe(true);
 
   // --- hatch and earn -----------------------------------------------------
   /*
@@ -210,7 +261,9 @@ test('the full loop runs end to end and the save round-trips', async ({ page }) 
   // Give the sanctuary money directly rather than idling for ten minutes:
   // this gate is about the wiring, and the economy has its own 200-session
   // test. Everything after this point is the real shop code.
-  await page.evaluate(() => {
+  // Patched from an init script, not before the reload: the app persists on
+  // pagehide, so the outgoing document would write its own copy over the top.
+  await page.addInitScript(() => {
     const raw = window.localStorage.getItem('egg-heist-wildlands/save');
     if (raw === null) return;
     const save = JSON.parse(raw) as Record<string, unknown>;
