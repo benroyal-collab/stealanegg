@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { drive, pressPlay, sample, settle, stopMoving } from './helpers';
+import { drive, hold, pressPlay, sample, settle, stopMoving } from './helpers';
 
 /**
  * The M6 gate.
@@ -9,6 +9,16 @@ import { drive, pressPlay, sample, settle, stopMoving } from './helpers';
  * If a test can find its way to the first nest from the tutorial line and the
  * grab prompt alone, a child can.
  */
+
+/*
+ * A small viewport, deliberately.
+ *
+ * This gate is about the simulation, not the picture: CI rasterises in
+ * software, and 1920x1080 costs roughly nine times as many pixels as
+ * 640x360 for frames nobody looks at. The screenshot gate is where the
+ * full resolution matters, and it runs at 1080p.
+ */
+test.use({ viewport: { width: 640, height: 360 } });
 
 test.setTimeout(600_000);
 
@@ -50,8 +60,17 @@ test('a cold start reaches the first egg on on-screen guidance alone', async ({ 
   let found = false;
 
   let sweepBack = false;
+  /*
+   * Short legs, checked between each one.
+   *
+   * The grab prompt only appears inside `EGG.grabRadius`, which is 2.6
+   * metres. A leg of three simulated seconds covers eighteen at sprint, so a
+   * search that only looks at the prompt between legs steps straight over the
+   * window it is looking for and sweeps back and forth past it forever. The
+   * leg has to be shorter than the radius it is hunting.
+   */
   for (let leg = 0; leg < 60 && !found; leg++) {
-    await drive(page, { moveY: sweepBack ? 1 : -1, sprint: true }, 3000);
+    await drive(page, { moveY: sweepBack ? 1 : -1, sprint: true }, 300);
     if ((await prompt.count()) > 0) {
       const text = (await prompt.textContent()) ?? '';
       if (/pick up/i.test(text)) found = true;
@@ -74,7 +93,7 @@ test('a cold start reaches the first egg on on-screen guidance alone', async ({ 
 
   // 4. The prompt says which button, and pressing it works.
   await page.evaluate(() => window.__eggheist?.setVirtualInput({ interact: true }));
-  await page.waitForTimeout(3000);
+  await hold(page, 3000);
 
   const state = await sample(page);
   expect(state).not.toBeNull();

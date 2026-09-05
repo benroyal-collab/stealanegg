@@ -68,13 +68,60 @@ export async function bootGame(page: Page): Promise<void> {
   });
 }
 
+/**
+ * The solver clamps its timestep to 1/20s, so one rendered frame advances the
+ * simulation by at most fifty milliseconds no matter how long it took to draw.
+ */
+const SIM_STEP_MS = 50;
+
+/**
+ * The most simulated time one `drive` call will wait for.
+ *
+ * CI renders this scene through a software rasteriser at between one and four
+ * frames a second, so a wall-clock wait advances the game by almost nothing:
+ * `waitForTimeout(2000)` used to buy two frames, which is a tenth of a second
+ * of simulated movement. Every gameplay assertion downstream then measured a
+ * player who had barely started walking.
+ *
+ * So these helpers count frames rather than milliseconds. The cap keeps a
+ * single call bounded in wall time -- a second of simulation is twenty frames,
+ * and twenty frames is already twenty seconds of CI.
+ */
+const MAX_SIM_FRAMES = 24;
+
+function framesFor(durationMs: number): number {
+  return Math.min(MAX_SIM_FRAMES, Math.max(2, Math.round(durationMs / SIM_STEP_MS)));
+}
+
+/** Wait for the renderer to produce `frames` more frames. */
+export async function advance(page: Page, frames: number): Promise<void> {
+  const start = (await page.evaluate(() => window.__eggheist?.frames() ?? 0)) as number;
+  await page.waitForFunction(
+    (target) => (window.__eggheist?.frames() ?? 0) >= target,
+    start + frames,
+    { timeout: 180_000, polling: 250 },
+  );
+}
+
+/**
+ * Hold an input for roughly `durationMs` of *simulated* time.
+ *
+ * The duration keeps its plain reading -- "sprint for two seconds" -- but it
+ * is honoured in frames, so the assertion after it measures the same game
+ * whether the frame took four milliseconds or four seconds.
+ */
 export async function drive(
   page: Page,
   input: Partial<VirtualInput>,
   durationMs: number,
 ): Promise<void> {
   await page.evaluate((i) => window.__eggheist?.setVirtualInput(i), input);
-  await page.waitForTimeout(durationMs);
+  await advance(page, framesFor(durationMs));
+}
+
+/** Let `durationMs` of simulated time pass without touching the input. */
+export async function hold(page: Page, durationMs: number): Promise<void> {
+  await advance(page, framesFor(durationMs));
 }
 
 export async function stopMoving(page: Page): Promise<void> {

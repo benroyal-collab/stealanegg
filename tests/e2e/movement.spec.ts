@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { bootGame, drive, history, sample, stopMoving, type TestSample } from './helpers';
+import { bootGame, drive, hold, history, sample, stopMoving, type TestSample } from './helpers';
 
 /**
  * The M1 gate.
@@ -9,6 +9,21 @@ import { bootGame, drive, history, sample, stopMoving, type TestSample } from '.
  * anywhere in the state, the player leaving the world through a wall or the
  * floor, and the camera clipping into geometry or flying off the arm.
  */
+
+// Three hundred simulated frames at the couple of frames a second a software
+// rasteriser manages is several minutes of wall clock. The default two-minute
+// test timeout is a statement about CI's speed, not about the controller.
+test.setTimeout(600_000);
+
+/*
+ * A small viewport, deliberately.
+ *
+ * This gate is about the simulation, not the picture: CI rasterises in
+ * software, and 1920x1080 costs roughly nine times as many pixels as
+ * 640x360 for frames nobody looks at. The screenshot gate is where the
+ * full resolution matters, and it runs at 1080p.
+ */
+test.use({ viewport: { width: 640, height: 360 } });
 
 const ARENA_HALF = 40;
 
@@ -61,7 +76,7 @@ test('a thirty-second movement loop stays healthy', async ({ page }) => {
   await drive(page, { moveY: -1, moveX: 0.8, sprint: true, lookX: 2 }, 3000);
   await drive(page, { moveY: -1, moveX: -0.8, sprint: true, lookX: -2 }, 3000);
   await stopMoving(page);
-  await page.waitForTimeout(600);
+  await hold(page, 600);
 
   // Jump and land repeatedly.
   for (let i = 0; i < 5; i++) {
@@ -90,7 +105,7 @@ test('a thirty-second movement loop stays healthy', async ({ page }) => {
   await drive(page, { moveY: -1, lookY: 6 }, 1500);
   await drive(page, { moveY: -1, lookY: -6 }, 1500);
   await stopMoving(page);
-  await page.waitForTimeout(500);
+  await hold(page, 500);
 
   assertHealthy(await history(page));
   expect(errors, `console errors: ${errors.join(' | ')}`).toEqual([]);
@@ -110,7 +125,7 @@ test('sprinting reaches full Pace and the player comes to rest', async ({ page }
   await stopMoving(page);
   // Generous, because a software rasteriser gives us only a handful of frames
   // per second and the decel curve is measured in frames, not milliseconds.
-  await page.waitForTimeout(2500);
+  await hold(page, 2500);
   const stopped = await sample(page);
   expect(stopped!.speed).toBeLessThan(0.2);
   expect(stopped!.gait).toBe('idle');

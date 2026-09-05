@@ -10,6 +10,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { useFrame } from '@react-three/fiber';
 import { ACESFilmicToneMapping, SRGBColorSpace, type Mesh } from 'three';
 import type { Rarity } from '../sim/types';
+import { WORLD } from '../data/balance';
 import { BIOME_DEFS } from '../data/biomes';
 import { InputManager } from '../systems/input';
 import { useGame } from '../state/store';
@@ -108,7 +109,29 @@ export function GameScene(): React.ReactElement {
    * with a distant treeline -- the exact opposite of what a dawn woodland
    * should look like.
    */
-  const sanctuaryExclusion = useMemo(() => [{ x: 0, z: 0, radius: 5.5 }], []);
+  const sanctuaryExclusion = useMemo(() => {
+    const circles: { x: number; z: number; radius: number }[] = [
+      { x: 0, z: 0, radius: WORLD.sanctuaryClearRadius },
+    ];
+    /*
+     * A lane out to nest zero, cleared with a chain of overlapping circles.
+     *
+     * The clearing alone is not enough. Nest zero is placed eighteen metres
+     * straight ahead of the spawn and the pacing model measures the first run
+     * over exactly that walk -- but the treeline starts at the clearing's rim,
+     * and a single trunk standing on the axis stopped the player dead at
+     * z=-5.1 with no way round that a child following the arrow would find.
+     *
+     * Clearing the lane makes the route real, and reads as a path out of the
+     * sanctuary rather than a wall of trees, which is what it should have
+     * looked like anyway.
+     */
+    const step = WORLD.spawnCorridorHalfWidth;
+    for (let z = WORLD.sanctuaryClearRadius; z <= WORLD.tutorialNestDistance + step; z += step) {
+      circles.push({ x: 0, z: -z, radius: WORLD.spawnCorridorHalfWidth * 1.4 });
+    }
+    return circles;
+  }, []);
 
   return (
     <Suspense fallback={null}>
@@ -116,6 +139,7 @@ export function GameScene(): React.ReactElement {
         exposure={settings.exposure * biome.lighting.exposure}
         maxDpr={quality.maxDpr}
       />
+      <StoreClock />
       <VirtualInputBridge input={input} />
       <SystemKeys input={input} />
       <PerfSampler
@@ -189,6 +213,28 @@ function SystemKeys({ input }: { input: InputManager }): null {
       state.setPhase(state.phase === 'photo' ? 'playing' : 'photo');
     }
     if (frame.perfPressed) state.togglePerfOverlay();
+  });
+  return null;
+}
+
+/**
+ * Drives the store's own clock.
+ *
+ * The incubator countdown, accrued play time, passive donations, caption
+ * expiry and the break reminder all hang off `tick`, and `tick` guards itself
+ * on the phase, so it has to be called from somewhere that runs every frame
+ * and stops when the game does. That is here.
+ *
+ * The store clock is deliberately the render clock and not `setInterval`: an
+ * egg should not finish incubating while the tab is in the background. Time
+ * away from the game is handled once, on load, by the offline-earnings path
+ * that caps itself at two hours.
+ */
+function StoreClock(): null {
+  useFrame((_state, delta) => {
+    // Never integrate a hitch. A tab that was backgrounded for a minute must
+    // not hand the incubator a minute.
+    useGame.getState().tick(Math.min(delta, 1 / 20) * 1000);
   });
   return null;
 }

@@ -11,7 +11,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { Vector3, type Group } from 'three';
 import { useRapier } from '@react-three/rapier';
 import { BIOME_DEFS } from '../data/biomes';
-import { CARRY_PENALTY, GUARDIAN, TOOL_DEFS } from '../data/balance';
+import { CARRY_PENALTY, GUARDIAN, TOOL_DEFS, WORLD } from '../data/balance';
 import { requireSpecies } from '../data/creatures';
 import { createNests, type Nest } from '../sim/nests';
 import { Rng } from '../sim/rng';
@@ -66,7 +66,7 @@ export interface Prompt {
  * FIRST_NEST_DISTANCE_METRES in sim/session.ts, which is what makes the
  * "first egg inside sixty seconds" pacing target honest rather than assumed.
  */
-const TUTORIAL_NEST_DISTANCE = -18;
+const TUTORIAL_NEST_DISTANCE = -WORLD.tutorialNestDistance;
 
 /** Reusable scratch, so the frame loop allocates nothing. */
 const scratchFrom = new Vector3();

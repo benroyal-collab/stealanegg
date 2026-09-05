@@ -129,15 +129,28 @@ export function PostChain({
       )}
 
       {quality.godRays && sunMesh !== null ? (
+        /*
+         * Tuned down hard after comparing the Ultra and High screenshots side
+         * by side: Ultra was the milkier, flatter image of the two, which is
+         * the wrong way round for the top preset.
+         *
+         * The cause is screen blending with an unclamped maximum. When the sun
+         * sits behind the camera -- which is most of the time, since the
+         * shafts are worth having at dawn precisely when the light is raking
+         * from behind you -- the effect has no visible source to radiate from
+         * and lays a flat veil over the whole frame instead. Clamping the
+         * maximum well below one keeps the shafts where the sun actually is
+         * and costs nothing anywhere else.
+         */
         <GodRays
           sun={sunMesh}
           blendFunction={BlendFunction.SCREEN}
           samples={quality.godRaySamples}
-          density={0.94}
-          decay={0.93}
-          weight={0.42 * lighting.volumetricStrength}
-          exposure={0.5 * lighting.volumetricStrength}
-          clampMax={1}
+          density={0.92}
+          decay={0.94}
+          weight={0.22 * lighting.volumetricStrength}
+          exposure={0.26 * lighting.volumetricStrength}
+          clampMax={0.55}
           blur
         />
       ) : (

@@ -173,6 +173,29 @@ export const EGG = {
 // Guardians
 // ---------------------------------------------------------------------------
 
+/**
+ * World layout that the pacing model depends on.
+ *
+ * `sim/session.ts` measures "first egg inside sixty seconds" over a walk of
+ * exactly `tutorialNestDistance` metres. If the world does not put a nest
+ * there, or does not leave a lane wide enough to walk it, that assertion is
+ * measuring a route the player cannot take. Both numbers live here so the
+ * simulation, the level and the tests read the same one.
+ */
+export const WORLD = {
+  /** Nest zero sits this far straight ahead of the spawn, in every biome. */
+  tutorialNestDistance: 18,
+  /** Radius around the sanctuary kept free of foliage. */
+  sanctuaryClearRadius: 5.5,
+  /**
+   * Half-width of the cleared lane from the sanctuary out to nest zero.
+   *
+   * Every station collider is at most 1.1m in half-width and the player
+   * capsule is 0.34, so two metres is a corridor a child cannot get wedged in.
+   */
+  spawnCorridorHalfWidth: 2,
+} as const;
+
 export const GUARDIAN = {
   visionConeDegrees: 60,
   visionRange: 18,

@@ -296,10 +296,14 @@ and both times the tell was the same: a number that would not move.
 
 ### What the measurement found
 
-| Preset | Draw calls    | Triangles        | Verdict                      |
-| ------ | ------------- | ---------------- | ---------------------------- |
-| Low    | 178           | 279k             | inside budget                |
-| High   | 665 → **258** | 1.12M → **670k** | inside the 450 / 1.2M budget |
+| Preset | Draw calls | Triangles    | Verdict                      |
+| ------ | ---------- | ------------ | ---------------------------- |
+| Low    | 178        | 279k         | inside budget                |
+| High   | 665 → 364  | 1.12M → 916k | inside the 450 / 1.2M budget |
+
+(The intermediate 258 / 670k was High with the ambient-occlusion normal pass
+switched off. That turned out not to be a saving so much as a missing feature
+— see below — so the real figure is the 364 with AO back on.)
 
 Three causes, in order of size:
 
@@ -316,8 +320,20 @@ Three causes, in order of size:
    child recognises by shape, so making each one subtly unique cost nine
    geometries and bought nothing.
 
-The last of those three had already been written down here as done before it
-actually was: the detail group existed and the distance constant existed, but
+A fourth saving was tried and then reversed: switching off the ambient
+occlusion normal pass at Medium and High bought about a hundred draw calls,
+and no ambient occlusion at all. SSAO does not fall back to depth-derived
+normals — it declines to run and logs about it once a frame. Two presets were
+therefore shipping an AO setting that was on and inert. The console assertion
+in the shot gate caught it the first time that gate ran against a build that
+actually contained the change, which is the same root cause as the stale-build
+problem above, showing up in a different disguise.
+
+The preset test now asserts `aoNormalPass === ambientOcclusion` rather than a
+hand-written list of four booleans, so the two cannot drift apart again.
+
+The last of the three savings had already been written down here as done
+before it actually was: the detail group existed and the distance constant existed, but
 the line that connects them had never been inserted, so the constant sat there
 unused and the cull did nothing. Lint caught it as an unused variable, which is
 the only reason it was caught at all.

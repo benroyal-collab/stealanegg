@@ -15,7 +15,7 @@
 
 import { BIOME_DEFS, BIOME_ORDER } from '../data/biomes';
 import { requireSpecies } from '../data/creatures';
-import { EGG, GUARDIAN, RIVALS } from '../data/balance';
+import { EGG, GUARDIAN, RIVALS, WORLD } from '../data/balance';
 import {
   computePace,
   discoveryBonus,
@@ -99,7 +99,7 @@ function runSeconds(pace: number, carryPenalty: number, skill: number): number {
  * CLAUDE.md as a rule for Whisper Glade, and Whisper Glade's first nest has
  * to honour it.
  */
-const FIRST_NEST_DISTANCE_METRES = 18;
+const FIRST_NEST_DISTANCE_METRES = WORLD.tutorialNestDistance;
 const FIRST_ESCAPE_SECONDS = 8;
 
 function firstRunSeconds(pace: number, skill: number): number {
