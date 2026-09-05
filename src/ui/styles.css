@@ -858,3 +858,13 @@ input[type='range'] {
 .panel li {
   line-height: 1.5;
 }
+
+.boot__tip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(46ch, 88vw);
+  margin: 4px 0 0;
+  color: var(--ink-dim);
+  text-align: left;
+}

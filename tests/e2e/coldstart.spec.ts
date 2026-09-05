@@ -34,33 +34,36 @@ test('a cold start reaches the first egg on on-screen guidance alone', async ({ 
   const firstLine = (await tutorial.textContent()) ?? '';
   expect(firstLine.toLowerCase()).toContain('egg');
 
-  // 3. Walk until a grab prompt appears. A nest has to be findable by
-  //    wandering, not by knowing where it is.
+  /*
+   * 3. Walk forward and find the first nest.
+   *
+   * Straight ahead, because nest zero is placed there deliberately -- see
+   * TUTORIAL_NEST_DISTANCE in BiomeRuntime and the rule in CLAUDE.md. A child
+   * who walks in the direction they are facing has to find something, and
+   * this is the test of that.
+   *
+   * Progress is checked by distance travelled rather than by wall clock: CI
+   * renders through a software rasteriser at well under one frame per second,
+   * so a fixed timeout would be measuring the rasteriser, not the game.
+   */
   const prompt = page.locator('.prompt');
   let found = false;
-  const headings = [
-    { moveY: -1 },
-    { moveY: -1, moveX: 0.7 },
-    { moveX: 1 },
-    { moveY: 1, moveX: 0.7 },
-    { moveY: 1 },
-    { moveY: 1, moveX: -0.7 },
-    { moveX: -1 },
-    { moveY: -1, moveX: -0.7 },
-  ];
 
-  for (let lap = 0; lap < 3 && !found; lap++) {
-    for (const heading of headings) {
-      await drive(page, { ...heading, sprint: true }, 4000);
-      if ((await prompt.count()) > 0) {
-        found = true;
-        break;
-      }
+  for (let leg = 0; leg < 30 && !found; leg++) {
+    await drive(page, { moveY: -1, sprint: true }, 2500);
+    if ((await prompt.count()) > 0) {
+      const text = (await prompt.textContent()) ?? '';
+      if (/pick up/i.test(text)) found = true;
+    }
+    const state = await sample(page);
+    // Overshot the nest: sweep back and forth rather than walking to the rim.
+    if (state !== null && state.z < -26) {
+      await drive(page, { moveY: 1, sprint: true }, 2000);
     }
   }
   await stopMoving(page);
 
-  expect(found, 'never came within reach of a nest by exploring').toBe(true);
+  expect(found, 'walking forward from the spawn never reached a nest').toBe(true);
   await expect(prompt).toContainText(/pick up|put the egg/i);
 
   // 4. The prompt says which button, and pressing it works.

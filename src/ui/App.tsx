@@ -25,6 +25,7 @@ import { PerfOverlay } from './PerfOverlay';
 import { PhotoMode } from './PhotoMode';
 import { RevealCard } from './RevealCard';
 import { AudioBridge } from './AudioBridge';
+import { LoadingTips } from './LoadingTips';
 
 // Lazy so three/rapier stay out of the initial bundle. See GameRoot's header.
 const GameRoot = lazy(() => import('./GameRoot'));
@@ -107,7 +108,7 @@ function BootScreen(): React.ReactElement {
     <div className="boot">
       <div className="boot__egg" aria-hidden="true" />
       <p>Getting the sanctuary ready…</p>
-      <p className="field__hint">Tip: crouching in long grass makes you very hard to spot.</p>
+      <LoadingTips />
     </div>
   );
 }

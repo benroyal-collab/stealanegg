@@ -59,6 +59,15 @@ export interface Prompt {
   readonly station?: StationId;
 }
 
+/**
+ * Where the tutorial nest sits, in metres from the sanctuary.
+ *
+ * Negative Z is straight ahead of the spawn. Matches
+ * FIRST_NEST_DISTANCE_METRES in sim/session.ts, which is what makes the
+ * "first egg inside sixty seconds" pacing target honest rather than assumed.
+ */
+const TUTORIAL_NEST_DISTANCE = -18;
+
 /** Reusable scratch, so the frame loop allocates nothing. */
 const scratchFrom = new Vector3();
 const scratchTo = new Vector3();
@@ -89,14 +98,28 @@ export function BiomeRuntime({
   const nests = useMemo<Nest[]>(() => {
     const rng = new Rng(`${biome}-nests`);
     const placements = scatterPlacements(field, rng, {
-      count: def.nestCount,
+      count: def.nestCount - 1,
       minSpacing: 16,
-      // Never inside the sanctuary, and the closest one is the tutorial nest.
-      minFromCentre: SANCTUARY_RADIUS + 5,
+      minFromCentre: SANCTUARY_RADIUS + 8,
       maxFromCentre: def.terrain.size * 0.36,
       maxSlope: 22,
     });
-    return createNests(placements, biome, new Rng(`${biome}-eggs`));
+
+    /*
+     * Nest zero is placed by hand, directly ahead of the spawn.
+     *
+     * This is not a convenience -- it is the level-design commitment the
+     * pacing model already depends on. `FIRST_NEST_DISTANCE_METRES` in
+     * sim/session.ts is 18, and the "first egg inside sixty seconds" target
+     * is only honest if a nest actually sits there. A scattered ring whose
+     * nearest member happens to be sixteen metres away in an arbitrary
+     * direction does not deliver that; a nest you can see from the incubator
+     * does. Recorded as a rule in CLAUDE.md.
+     */
+    const tutorial = { position: { x: 0, z: TUTORIAL_NEST_DISTANCE }, groundY: 0 };
+    tutorial.groundY = sampleHeight(field, tutorial.position.x, tutorial.position.z);
+
+    return createNests([tutorial, ...placements], biome, new Rng(`${biome}-eggs`));
   }, [biome, field, def]);
 
   const groundAt = useCallback(

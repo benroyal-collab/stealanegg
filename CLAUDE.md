@@ -79,6 +79,12 @@ pacing windows they produce, so the file is under test.
 - **Nests sit within about 40 m of a safe route home.** A full stamina bar
   buys 36 m of sprint. Further than that and the escape stops being a skill
   moment and becomes a jog.
+- **Nest zero sits 18 metres directly ahead of the spawn, in every biome.**
+  The economy simulation's "first egg inside sixty seconds" target assumes a
+  guided first run over exactly that distance (`FIRST_NEST_DISTANCE_METRES` in
+  `sim/session.ts`). If the world does not put a nest there, the pacing
+  assertion is measuring a fiction. It is placed by hand in `BiomeRuntime`;
+  the rest scatter.
 - **Cover has to break line of sight at crouch height.** Guardian vision is a
   cone from roughly chest height; anything a player can hide behind must
   actually occlude the ray, not just look like it does.

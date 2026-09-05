@@ -235,3 +235,31 @@ do.
 - **The tutorial is five lines and clears itself.** No "click Next", no gate,
   no quiz. A child who ignores it entirely can still finish the game on the
   prompts alone — which is what the cold-start gate actually asserts.
+
+## M3 / M7 — Impact, and one design commitment made honest
+
+- **Gameplay requests effects; the systems decide.** A catch sets
+  `playerRef.shakeRequest` and `playerRef.tumbleRemaining` rather than calling
+  into the camera or the solver. The camera suppresses shake under reduced
+  motion without gameplay code needing to know that setting exists, and the
+  movement solver owns the tumble as one of its own stances. Every
+  accessibility rule then lives in exactly one place.
+- **Particles are one pooled instanced mesh recycled by index.** Dead
+  instances park at zero scale rather than being removed, so the instance
+  count is constant and the buffer never resizes. A burst allocates nothing.
+
+### The tutorial nest
+
+`sim/session.ts` models the first run over an eighteen-metre trip and calls it
+a "level-design commitment". Then the cold-start gate walked out of the
+sanctuary and could not find a nest, because nests were scattered on a ring
+starting sixteen metres out _in an arbitrary direction_.
+
+So the pacing model was asserting a fiction: "first egg inside sixty seconds"
+was measured against a world that did not exist. Nest zero is now placed by
+hand, eighteen metres directly ahead of the spawn, in every biome, and the
+rule is written into `CLAUDE.md` where the next person will find it.
+
+This is the failure mode I most wanted to avoid on this project — a green test
+measuring something the game does not do — and it took an end-to-end test
+walking the actual world to catch it. Worth the cost of writing that test.
