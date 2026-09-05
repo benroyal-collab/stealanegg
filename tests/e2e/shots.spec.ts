@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { existsSync, mkdirSync } from 'node:fs';
 import { bootBiome, drive, sample, settle, stopMoving } from './helpers';
 
@@ -22,22 +22,31 @@ test.beforeAll(() => {
   if (!existsSync(SHOTS)) mkdirSync(SHOTS, { recursive: true });
 });
 
+/*
+ * Console errors are part of this gate, not an afterthought.
+ *
+ * A shader that fails to compile still produces a screenshot -- just one with
+ * the geometry missing. That is exactly how a CSM bug survived several rounds
+ * of looking at pictures: it only appeared above one cascade, so the Low
+ * preset looked fine and the byte-size check passed. It is also how an
+ * ambient-occlusion pass sat switched off for a whole preset tier, doing
+ * nothing but logging about it.
+ *
+ * Neither of those is visible in a screenshot unless you already know to look.
+ * A clean console is.
+ */
+function watchConsole(page: Page): string[] {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message.split('\n')[0] ?? ''));
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push(m.text().split('\n')[0] ?? '');
+  });
+  return errors;
+}
+
 for (const preset of ['low', 'medium', 'high', 'ultra'] as const) {
   test(`whisper glade at ${preset}`, async ({ page }) => {
-    /*
-     * Console errors are part of this gate, not an afterthought.
-     *
-     * A shader that fails to compile still produces a screenshot -- just one
-     * with the geometry missing. That is exactly how a CSM bug survived
-     * several rounds of looking at pictures: it only appeared above one
-     * cascade, so the Low preset looked fine and the byte-size check passed.
-     * Asserting a clean console at every preset catches it in one run.
-     */
-    const errors: string[] = [];
-    page.on('pageerror', (e) => errors.push(e.message.split('\n')[0] ?? ''));
-    page.on('console', (m) => {
-      if (m.type() === 'error') errors.push(m.text().split('\n')[0] ?? '');
-    });
+    const errors = watchConsole(page);
 
     await bootBiome(page, 'glade', preset);
     // Turn the camera towards the low sun so the shot shows what the biome is
@@ -60,6 +69,11 @@ for (const preset of ['low', 'medium', 'high', 'ultra'] as const) {
 
 for (const biome of ['glade', 'mirrormere', 'dunes'] as const) {
   test(`${biome} at high`, async ({ page }) => {
+    // Mirrormere is the only biome with a water surface, and the Dunes are
+    // the only one with heat haze. Neither appears in the Glade shots, so
+    // this loop is where those two shaders get checked at all.
+    const errors = watchConsole(page);
+
     await bootBiome(page, biome, 'high');
     await drive(page, { lookX: -30 }, 400);
     await stopMoving(page);
@@ -67,5 +81,6 @@ for (const biome of ['glade', 'mirrormere', 'dunes'] as const) {
 
     const buffer = await page.screenshot({ path: `${SHOTS}/biome-${biome}.png` });
     expect(buffer.length, 'the frame looks empty').toBeGreaterThan(60_000);
+    expect(errors, `console errors in ${biome}: ${errors.join(' | ')}`).toEqual([]);
   });
 }

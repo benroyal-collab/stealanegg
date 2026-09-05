@@ -24,10 +24,16 @@ export interface QualitySettings {
   /**
    * Render a dedicated normal pass for ambient occlusion.
    *
-   * A normal pass is a second full render of the scene, and it measured at
-   * roughly 150 draw calls -- the difference between holding the 450 budget
-   * at High and missing it. Without it, AO derives its normals from the depth
-   * buffer instead: slightly softer around thin geometry, and free.
+   * A normal pass is a second full render of the scene, so it is the single
+   * most expensive item in the post chain. It is also not optional: the SSAO
+   * effect refuses to run without one and logs
+   * "Please enable the NormalPass in the EffectComposer" instead. Turning it
+   * off to buy draw calls therefore does not buy cheaper AO, it buys no AO --
+   * a mistake made once here, and caught only because the shot gate asserts a
+   * clean console.
+   *
+   * So it tracks `ambientOcclusion` exactly, and the draw calls come from
+   * somewhere else.
    */
   readonly aoNormalPass: boolean;
   readonly bloom: boolean;
@@ -82,7 +88,7 @@ export const QUALITY_PRESETS: Record<QualityLevel, QualitySettings> = {
     envResolution: 128,
     ambientOcclusion: true,
     aoSamples: 9,
-    aoNormalPass: false,
+    aoNormalPass: true,
     bloom: true,
     godRays: false,
     godRaySamples: 0,
@@ -115,7 +121,7 @@ export const QUALITY_PRESETS: Record<QualityLevel, QualitySettings> = {
     envResolution: 256,
     ambientOcclusion: true,
     aoSamples: 16,
-    aoNormalPass: false,
+    aoNormalPass: true,
     bloom: true,
     /*
      * God rays are an Ultra feature, reluctantly.

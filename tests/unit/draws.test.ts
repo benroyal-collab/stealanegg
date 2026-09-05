@@ -25,16 +25,23 @@ describe('quality presets', () => {
     }
   });
 
-  it('keeps the most expensive passes on the top preset only', () => {
-    // Each of these is a full extra render of the scene. The budget only has
-    // room for one of them below Ultra.
-    expect(QUALITY_PRESETS.low.aoNormalPass).toBe(false);
-    expect(QUALITY_PRESETS.medium.aoNormalPass).toBe(false);
-    expect(QUALITY_PRESETS.high.aoNormalPass).toBe(false);
-    expect(QUALITY_PRESETS.ultra.aoNormalPass).toBe(true);
+  it('gives ambient occlusion the normal pass it cannot run without', () => {
+    /*
+     * SSAO does not degrade without a normal pass -- it refuses to run and
+     * logs an error. So a preset that asks for AO must also pay for the pass,
+     * and a preset that does not want the pass must turn AO off honestly
+     * rather than leaving a setting on that does nothing.
+     */
+    for (const preset of Object.values(QUALITY_PRESETS)) {
+      expect(preset.aoNormalPass, `${preset.level} normal pass`).toBe(preset.ambientOcclusion);
+    }
+    expect(QUALITY_PRESETS.low.ambientOcclusion).toBe(false);
+  });
 
-    // God rays render the scene a second time into an occlusion buffer, so
-    // they sit alongside the AO normal pass on Ultra only.
+  it('keeps god rays on the top preset only', () => {
+    // God rays render the scene a second time into an occlusion buffer, and
+    // unlike the AO normal pass nothing else depends on them, so they are the
+    // pass that gets cut when the budget is tight.
     expect(QUALITY_PRESETS.low.godRays).toBe(false);
     expect(QUALITY_PRESETS.medium.godRays).toBe(false);
     expect(QUALITY_PRESETS.high.godRays).toBe(false);
