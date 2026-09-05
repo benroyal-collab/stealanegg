@@ -70,10 +70,19 @@ export function Sanctuary({
 
   return (
     <group position={[0, groundY, 0]}>
-      {/* A trodden clearing, so the ground reads as "somewhere people are". */}
+      {/*
+        A trodden clearing, so the ground reads as "somewhere people are".
+        Warm bare earth rather than the neutral tan it started as -- against
+        the biome's greens a neutral read as flat grey.
+      */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]} receiveShadow>
         <circleGeometry args={[SANCTUARY_RADIUS, 40]} />
-        <meshStandardMaterial color="#9a8f6e" roughness={0.96} />
+        <meshStandardMaterial color="#b39468" roughness={0.96} />
+      </mesh>
+      {/* A soft edge, so the clearing does not end on a hard circle. */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.015, 0]} receiveShadow>
+        <ringGeometry args={[SANCTUARY_RADIUS - 0.6, SANCTUARY_RADIUS + 2.6, 40]} />
+        <meshStandardMaterial color="#93975e" roughness={0.97} transparent opacity={0.7} />
       </mesh>
 
       <Incubator
@@ -260,7 +269,10 @@ function Habitat({
 }): React.ReactElement {
   return (
     <group position={position}>
-      {/* A low fence ring. Four posts and a rail, nothing more. */}
+      {/*
+        A low fence ring: six posts joined by a rail. The rail matters -- six
+        unconnected posts read as debris, not as a pen.
+      */}
       {[0, 1, 2, 3, 4, 5].map((i) => {
         const angle = (i / 6) * Math.PI * 2;
         return (
@@ -274,6 +286,10 @@ function Habitat({
           </mesh>
         );
       })}
+      <mesh position={[0, 0.4, 0]} rotation={[-Math.PI / 2, 0, 0]} castShadow>
+        <torusGeometry args={[1.15, 0.035, 5, 20]} />
+        <meshStandardMaterial color="#9a7c50" roughness={0.9} />
+      </mesh>
       <mesh position={[0, 0.015, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <circleGeometry args={[1.2, 18]} />
         <meshStandardMaterial color="#6f7f4a" roughness={0.95} />

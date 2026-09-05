@@ -22,6 +22,10 @@ function makeNests(count = 4): Nest[] {
 
 const tick = { respawned: [] as number[] };
 
+function rarityOf(nest: Nest): string | null {
+  return nest.egg === null ? null : nest.egg.rarity;
+}
+
 describe('nests', () => {
   it('starts every nest with an egg', () => {
     for (const nest of makeNests()) expect(nest.egg).not.toBeNull();
@@ -75,8 +79,11 @@ describe('nests', () => {
       nest.respawnIn = 0;
       nest.cycleRemaining = EGG.rarePlusCycleSeconds;
       tickNests(nests, 'glade', rng, 0.1, tick);
-      const rarity = nest.egg?.rarity;
-      if (rarity !== undefined && rarity !== 'common' && rarity !== 'uncommon') rareCount += 1;
+      // Read through a helper: assigning `nest.egg = null` above narrows the
+      // property to null for the rest of the block, and the compiler has no
+      // way to know tickNests refills it.
+      const rarity = rarityOf(nest);
+      if (rarity !== null && rarity !== 'common' && rarity !== 'uncommon') rareCount += 1;
     }
     // The downgrade is one re-roll, not a hard lockout, so some get through --
     // but far fewer than the raw weights would produce.
