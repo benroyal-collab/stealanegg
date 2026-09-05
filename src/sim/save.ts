@@ -161,7 +161,8 @@ function parseCreature(value: unknown): SaveV1['creatures'][number] | null {
   if (!isOneOf(value.rarity, RARITIES)) return null;
   if (!isOneOf(value.mutation, MUTATIONS)) return null;
   if (!isOneOf(value.size, SIZES)) return null;
-  const slot = typeof value.slot === 'number' && Number.isFinite(value.slot) ? Math.floor(value.slot) : null;
+  const slot =
+    typeof value.slot === 'number' && Number.isFinite(value.slot) ? Math.floor(value.slot) : null;
   return {
     uid: typeof value.uid === 'string' ? value.uid : createUid(),
     speciesId: value.speciesId,
@@ -178,7 +179,12 @@ function parseIncubator(value: unknown): SaveV1['incubator'] {
   if (roll === null) return null;
   const total = finite(value.total, 30, 1);
   return {
-    roll: { speciesId: roll.speciesId, rarity: roll.rarity, mutation: roll.mutation, size: roll.size },
+    roll: {
+      speciesId: roll.speciesId,
+      rarity: roll.rarity,
+      mutation: roll.mutation,
+      size: roll.size,
+    },
     remaining: Math.min(total, finite(value.remaining, total, 0)),
     total,
   };
@@ -200,7 +206,12 @@ function parseSettings(value: unknown): GameSettings {
       ? value.quality
       : d.quality,
     reducedMotion: bool(value.reducedMotion, d.reducedMotion),
-    colourblind: isOneOf(value.colourblind, ['off', 'deuteranopia', 'protanopia', 'tritanopia'] as const)
+    colourblind: isOneOf(value.colourblind, [
+      'off',
+      'deuteranopia',
+      'protanopia',
+      'tritanopia',
+    ] as const)
       ? value.colourblind
       : d.colourblind,
     captions: bool(value.captions, d.captions),
@@ -214,7 +225,11 @@ function parseSettings(value: unknown): GameSettings {
     lookSensitivity: clamp(finite(value.lookSensitivity, d.lookSensitivity, 0.1), 0.2, 3),
     cameraShake: bool(value.cameraShake, d.cameraShake),
     exposure: clamp(finite(value.exposure, d.exposure, 0.1), 0.5, 1.8),
-    breakReminderMinutes: clamp(finite(value.breakReminderMinutes, d.breakReminderMinutes, 0), 0, 180),
+    breakReminderMinutes: clamp(
+      finite(value.breakReminderMinutes, d.breakReminderMinutes, 0),
+      0,
+      180,
+    ),
     bindings,
   };
 }

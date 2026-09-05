@@ -194,7 +194,13 @@ export const UPGRADE_DEFS: Record<
   UpgradeId,
   { baseCost: number; curve: number; maxLevel: number; label: string; icon: string }
 > = {
-  trainingTrack: { baseCost: 250, curve: 1.75, maxLevel: 24, label: 'Training Track', icon: 'boot-run' },
+  trainingTrack: {
+    baseCost: 250,
+    curve: 1.75,
+    maxLevel: 24,
+    label: 'Training Track',
+    icon: 'boot-run',
+  },
   boots: { baseCost: 600, curve: 1.65, maxLevel: 8, label: 'Springy Boots', icon: 'boot' },
   incubator: { baseCost: 320, curve: 1.65, maxLevel: 10, label: 'Incubator', icon: 'egg-warm' },
   habitatSlots: { baseCost: 400, curve: 1.65, maxLevel: 16, label: 'Habitat Slot', icon: 'fence' },

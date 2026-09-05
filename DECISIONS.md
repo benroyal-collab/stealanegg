@@ -30,3 +30,18 @@ Where the brief left a choice open, this is what I picked and why.
   250KB gzip initial budget, so the menu shell loads alone and the game chunk
   is fetched behind the Play button. The budget is about time-to-interactive,
   and this is the honest way to hit it.
+- **Reversed D2: use Rapier's `KinematicCharacterController` for collide-and-slide,
+  keep the feel layer mine.** `PLAN.md` said I'd shapecast by hand. Having
+  looked at what that actually costs — step-up, slope limits, ground snap and
+  de-penetration are all edge-case minefields — the better split is: my solver
+  owns acceleration curves, gravity, coyote time, input buffering, slide
+  friction and vault arcs and produces a _desired displacement_ each frame;
+  Rapier owns turning that displacement into a legal one. I lose nothing on
+  feel, because every feel target lives above the collision layer, and I gain a
+  battle-tested collision response. Logged here rather than quietly changing
+  the plan.
+- **Playwright points at the environment's Chromium.** This box ships browser
+  build 1194 and no outbound path to fetch the 1243 this Playwright version
+  wants. The config uses `/opt/pw-browsers/chromium` when it exists and falls
+  back to Playwright's own resolution otherwise, so CI and dev machines are
+  unaffected.

@@ -42,7 +42,10 @@ export default tseslint.config(
         {
           patterns: [
             { group: ['three', 'three/*'], message: 'sim/ and data/ must stay renderer-free.' },
-            { group: ['react', 'react/*', 'react-dom*'], message: 'sim/ and data/ must stay React-free.' },
+            {
+              group: ['react', 'react/*', 'react-dom*'],
+              message: 'sim/ and data/ must stay React-free.',
+            },
             { group: ['@react-three/*'], message: 'sim/ and data/ must stay renderer-free.' },
           ],
         },

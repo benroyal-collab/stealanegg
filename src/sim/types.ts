@@ -33,7 +33,13 @@ export const TOOLS = ['seedPouch', 'sleepyBerries', 'whistle'] as const;
 export type ToolId = (typeof TOOLS)[number];
 
 /** Upgrade tracks. Pace is the spine; everything else supports it. */
-export const UPGRADES = ['trainingTrack', 'boots', 'incubator', 'habitatSlots', 'fieldGuide'] as const;
+export const UPGRADES = [
+  'trainingTrack',
+  'boots',
+  'incubator',
+  'habitatSlots',
+  'fieldGuide',
+] as const;
 export type UpgradeId = (typeof UPGRADES)[number];
 
 /** A creature species. Purely descriptive; income comes from `baseIncome`. */
@@ -84,13 +90,7 @@ export interface EggInIncubator {
 }
 
 export type GuardianState =
-  | 'patrol'
-  | 'alert'
-  | 'investigate'
-  | 'chase'
-  | 'giveUp'
-  | 'cooldown'
-  | 'drowsy';
+  'patrol' | 'alert' | 'investigate' | 'chase' | 'giveUp' | 'cooldown' | 'drowsy';
 
 export interface GuardianPerceptionInput {
   /** Metres from guardian to player. */

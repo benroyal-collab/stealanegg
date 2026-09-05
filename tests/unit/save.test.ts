@@ -18,8 +18,22 @@ describe('save schema', () => {
     save.currentBiome = 'mirrormere';
     save.discovered = ['mossling', 'reedskipper'];
     save.creatures = [
-      { uid: 'c1', speciesId: 'mossling', rarity: 'common', mutation: 'golden', size: 'big', slot: 0 },
-      { uid: 'c2', speciesId: 'glasscarp', rarity: 'uncommon', mutation: 'none', size: 'tiny', slot: null },
+      {
+        uid: 'c1',
+        speciesId: 'mossling',
+        rarity: 'common',
+        mutation: 'golden',
+        size: 'big',
+        slot: 0,
+      },
+      {
+        uid: 'c2',
+        speciesId: 'glasscarp',
+        rarity: 'uncommon',
+        mutation: 'none',
+        size: 'tiny',
+        slot: null,
+      },
     ];
     save.incubator = {
       roll: { speciesId: 'pipfinch', rarity: 'common', mutation: 'prism', size: 'huge' },
@@ -44,8 +58,21 @@ describe('save schema', () => {
         version: 1,
         money: 50,
         creatures: [
-          { uid: 'ok', speciesId: 'mossling', rarity: 'common', mutation: 'none', size: 'normal', slot: 1 },
-          { uid: 'bad', speciesId: 'mossling', rarity: 'not-a-rarity', mutation: 'none', size: 'normal' },
+          {
+            uid: 'ok',
+            speciesId: 'mossling',
+            rarity: 'common',
+            mutation: 'none',
+            size: 'normal',
+            slot: 1,
+          },
+          {
+            uid: 'bad',
+            speciesId: 'mossling',
+            rarity: 'not-a-rarity',
+            mutation: 'none',
+            size: 'normal',
+          },
           'garbage',
           null,
         ],
@@ -65,7 +92,10 @@ describe('save schema', () => {
 
   it('clamps out-of-range settings into legal values', () => {
     const result = migrate(
-      { version: 1, settings: { uiScale: 12, masterVolume: -4, difficulty: 'impossible', exposure: 99 } },
+      {
+        version: 1,
+        settings: { uiScale: 12, masterVolume: -4, difficulty: 'impossible', exposure: 99 },
+      },
       1,
     );
     expect(result.settings.uiScale).toBe(1.5);

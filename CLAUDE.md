@@ -17,7 +17,7 @@ Three biomes ship: Whisper Glade, Mirrormere, Amber Dunes.
 1. **Failure costs time, never progress.** Being caught drops the egg and
    costs three seconds. It never costs money, creatures, upgrades or a
    session. If you add a punishment, you have broken the game.
-2. **One stat is the spine.** *Pace* gates content, enables skill and absorbs
+2. **One stat is the spine.** _Pace_ gates content, enables skill and absorbs
    upgrades. Do not add a parallel progression track.
 3. **Variance lives on the payout, not the challenge.** Mutation and size make
    rewards exciting. The run itself is always fair and readable. All randomness
@@ -44,7 +44,7 @@ they import a renderer, React, or `@react-three/*`. Keep it that way: it is
 the only reason the economy and FSM tests are fast and trustworthy.
 
 **State ownership.** One zustand store in `src/state/`. The store is written by
-sim and systems, and *read* by React. React never owns gameplay state.
+sim and systems, and _read_ by React. React never owns gameplay state.
 Per-frame data (player transform, guardian transforms, camera) lives in
 mutable refs outside React entirely — only discrete events (egg grabbed, biome
 unlocked, money threshold crossed) go through the store and trigger a render.
@@ -78,13 +78,13 @@ cut — the budget wins the argument.
 
 ## Commands
 
-| Command | What it does |
-|---|---|
-| `npm run dev` | Dev server |
-| `npm run build` | Typecheck then production build |
-| `npm test` | Vitest — sim, economy, FSM, save, cue registry |
-| `npm run lint` | ESLint + Prettier check |
-| `npm run e2e` | Playwright — smoke, movement, cold start, network isolation |
+| Command         | What it does                                                |
+| --------------- | ----------------------------------------------------------- |
+| `npm run dev`   | Dev server                                                  |
+| `npm run build` | Typecheck then production build                             |
+| `npm test`      | Vitest — sim, economy, FSM, save, cue registry              |
+| `npm run lint`  | ESLint + Prettier check                                     |
+| `npm run e2e`   | Playwright — smoke, movement, cold start, network isolation |
 
 ## Where to start reading
 

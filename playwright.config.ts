@@ -1,6 +1,16 @@
+import { existsSync } from 'node:fs';
 import { defineConfig, devices } from '@playwright/test';
 
 const PORT = 4173;
+
+/**
+ * This environment ships a Chromium build that predates the one this
+ * Playwright version would download, and there is no outbound access to fetch
+ * a matching one. Point at the local binary when it exists; fall back to
+ * Playwright's own resolution everywhere else (CI, a dev machine).
+ */
+const LOCAL_CHROMIUM = '/opt/pw-browsers/chromium';
+const executablePath = existsSync(LOCAL_CHROMIUM) ? LOCAL_CHROMIUM : undefined;
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -15,6 +25,7 @@ export default defineConfig({
     trace: 'off',
     video: 'off',
     launchOptions: {
+      ...(executablePath === undefined ? {} : { executablePath }),
       args: [
         '--use-gl=angle',
         '--use-angle=swiftshader',

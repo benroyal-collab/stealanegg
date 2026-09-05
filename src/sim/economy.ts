@@ -4,14 +4,7 @@
  * through these in a few milliseconds.
  */
 
-import {
-  CARRY_PENALTY,
-  ECONOMY,
-  INCUBATION,
-  PACE,
-  UPGRADE_DEFS,
-  MOVEMENT,
-} from '../data/balance';
+import { CARRY_PENALTY, ECONOMY, INCUBATION, PACE, UPGRADE_DEFS, MOVEMENT } from '../data/balance';
 import { BIOME_DEFS, BIOME_ORDER } from '../data/biomes';
 import { requireSpecies } from '../data/creatures';
 import { creatureIncome } from './rolls';
@@ -48,7 +41,8 @@ export function habitatSlots(upgrades: Record<UpgradeId, number>): number {
 }
 
 export function incubationSeconds(incubatorLevel: number): number {
-  const scaled = INCUBATION.baseSeconds * Math.pow(1 - INCUBATION.reductionPerLevel, incubatorLevel);
+  const scaled =
+    INCUBATION.baseSeconds * Math.pow(1 - INCUBATION.reductionPerLevel, incubatorLevel);
   return Math.max(INCUBATION.floorSeconds, Math.round(scaled * 100) / 100);
 }
 

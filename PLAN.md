@@ -12,7 +12,7 @@ The two things that decide whether this succeeds:
 1. **Feel.** If holding the stick down and running a circle isn't satisfying,
    nothing downstream matters. M1 is gated on that and I will not proceed past
    a mushy controller.
-2. **The look.** The visual bar *is* the project. Grey-boxes shipped as "done"
+2. **The look.** The visual bar _is_ the project. Grey-boxes shipped as "done"
    is the single worst failure mode available here.
 
 ## 2. Architecture
@@ -33,7 +33,7 @@ src/
 ```
 
 **State ownership.** `zustand` holds a single store. The store is written by
-sim + systems and *read* by React. React never owns gameplay state and never
+sim + systems and _read_ by React. React never owns gameplay state and never
 drives a frame. Per-frame mutation (player transform, guardian transforms)
 lives in mutable ref objects outside React's reconciliation entirely — only
 discrete, low-frequency events (egg grabbed, biome unlocked, money crossed a
@@ -55,13 +55,13 @@ world means I never have to retrofit the art.
 
 ## 4. Risks
 
-| Risk | Mitigation |
-|---|---|
-| **Frame budget vs. the visual spec.** GTAO + volumetrics + instanced foliage + water on Iris Xe at 60fps is genuinely tight. | Quality presets from day one, not bolted on. Every post effect is individually gate-able. The perf overlay (F3) ships. If something can't hold budget it goes to Ultra or gets cut — the budget wins the argument. |
-| **Bundle budget (250KB gz) vs. three + rapier WASM.** Rapier's WASM alone blows the initial budget. | Route-split: the initial load is the menu shell + loader only. The game scene, three, and rapier are a lazy chunk fetched behind the Play button. Initial bundle stays small and honest. |
-| **Asset pipeline is a dependency I don't control.** Downloading HDRIs/models means external hosts, licence bookkeeping, KTX2 tooling, and a real chance of a broken URL in a committed file. | Generate everything procedurally (see D1). Zero external assets means zero broken links, zero licence risk, and a *provable* zero-third-party-network guarantee, which §3 requires anyway. |
-| **Scope.** This brief is roughly a team-quarter of work. | Depth over breadth, as instructed. Three biomes finished. Everything in §3 (safety) treated as build-breaking and verified by test, not by eyeball. |
-| **Child-safety claims must be verifiable, not asserted.** | A Playwright test intercepts *all* network traffic and fails on any third-party request. A Vitest test walks the cue registry and fails if any audio cue lacks a caption. Safety is enforced by CI, not by good intentions. |
+| Risk                                                                                                                                                                                         | Mitigation                                                                                                                                                                                                                  |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Frame budget vs. the visual spec.** GTAO + volumetrics + instanced foliage + water on Iris Xe at 60fps is genuinely tight.                                                                 | Quality presets from day one, not bolted on. Every post effect is individually gate-able. The perf overlay (F3) ships. If something can't hold budget it goes to Ultra or gets cut — the budget wins the argument.          |
+| **Bundle budget (250KB gz) vs. three + rapier WASM.** Rapier's WASM alone blows the initial budget.                                                                                          | Route-split: the initial load is the menu shell + loader only. The game scene, three, and rapier are a lazy chunk fetched behind the Play button. Initial bundle stays small and honest.                                    |
+| **Asset pipeline is a dependency I don't control.** Downloading HDRIs/models means external hosts, licence bookkeeping, KTX2 tooling, and a real chance of a broken URL in a committed file. | Generate everything procedurally (see D1). Zero external assets means zero broken links, zero licence risk, and a _provable_ zero-third-party-network guarantee, which §3 requires anyway.                                  |
+| **Scope.** This brief is roughly a team-quarter of work.                                                                                                                                     | Depth over breadth, as instructed. Three biomes finished. Everything in §3 (safety) treated as build-breaking and verified by test, not by eyeball.                                                                         |
+| **Child-safety claims must be verifiable, not asserted.**                                                                                                                                    | A Playwright test intercepts _all_ network traffic and fails on any third-party request. A Vitest test walks the cue registry and fails if any audio cue lacks a caption. Safety is enforced by CI, not by good intentions. |
 
 ## 5. The three decisions I am least sure about
 
@@ -69,30 +69,30 @@ world means I never have to retrofit the art.
 The brief names Poly Haven, Quaternius and Kenney. I am going procedural
 instead: terrain from noise, sky/HDRI from a physical-sky shader baked to
 PMREM at runtime, PBR textures synthesised on canvas, creatures and eggs from
-parametric geometry, audio from WebAudio synthesis. *Why:* it makes the
+parametric geometry, audio from WebAudio synthesis. _Why:_ it makes the
 zero-third-party-network requirement provable rather than aspirational, it
 removes every broken-URL and licence-attribution failure mode, and it keeps
-the payload tiny. *What I'm unsure about:* hand-authored artist meshes would
+the payload tiny. _What I'm unsure about:_ hand-authored artist meshes would
 almost certainly beat my parametric creatures on pure charm. I think the
-trade is right for a slice that must *ship*, but it is a real cost and it is
+trade is right for a slice that must _ship_, but it is a real cost and it is
 the decision most likely to be wrong.
 
 **D2 — Hand-rolled kinematic solver inside Rapier, rather than Rapier's
 `KinematicCharacterController`.**
 Rapier is in the stack and owns the world, colliders and queries. But the
-character move/slide/step/coyote logic is mine, driven by shapecasts. *Why:*
+character move/slide/step/coyote logic is mine, driven by shapecasts. _Why:_
 feel targets that precise (120ms coyote, 150ms buffer, exact slide friction
 curves) need the solver to be inspectable and tweakable frame by frame.
-*Unsure:* it's more code to get right, and Rapier's controller handles some
+_Unsure:_ it's more code to get right, and Rapier's controller handles some
 step/slope edge cases well out of the box.
 
 **D3 — Rival collectors as a scripted timing device, not real pathfinding
 agents.**
 They telegraph a target, travel a spline on a timer, and claim the egg if
-they arrive first. *Why:* the brief's constraint is that they must never
+they arrive first. _Why:_ the brief's constraint is that they must never
 touch, chase or attack the player, and that losing a race costs exactly 20
 seconds. A scripted racer delivers that pressure with total predictability
-and near-zero CPU. *Unsure:* it may read as fake once a child watches one for
+and near-zero CPU. _Unsure:_ it may read as fake once a child watches one for
 a few minutes. A real navmesh agent would look better and cost budget I'd
 rather spend on foliage.
 
