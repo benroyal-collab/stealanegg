@@ -1,0 +1,15 @@
+:root {
+  --ui-scale: 1;
+  --ink: #f2efe6;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  background: #0d1410;
+  color: #f2efe6;
+  font-family: 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+canvas { display: block; touch-action: none; }
