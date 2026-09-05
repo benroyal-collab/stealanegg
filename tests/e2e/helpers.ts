@@ -14,6 +14,8 @@ export interface TestSample {
   cameraZ: number;
   cameraDistance: number;
   frame: number;
+  drawCalls: number;
+  triangles: number;
 }
 
 export interface VirtualInput {

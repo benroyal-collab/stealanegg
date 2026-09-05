@@ -263,3 +263,58 @@ rule is written into `CLAUDE.md` where the next person will find it.
 This is the failure mode I most wanted to avoid on this project — a green test
 measuring something the game does not do — and it took an end-to-end test
 walking the actual world to catch it. Worth the cost of writing that test.
+
+## Performance — measuring the budget properly
+
+### Reading the counters at all
+
+The first attempt at a budget probe reported `draws=1 tris=1`. three clears
+`info.render` inside every `render()` call, and an ordinary frame callback
+runs _before_ the render, so it was reading a freshly-cleared counter every
+time. Setting `info.autoReset = false` and clearing it ourselves at the top of
+each frame (priority −1000) means what the overlay and the gate read is the
+previous frame's real total.
+
+Worth stating plainly: I had a performance overlay reporting zeros and did not
+notice, because zeros look like "nothing to worry about". A budget you cannot
+see is a wish, and a budget that reads zero is worse than none at all.
+
+### What the measurement found
+
+| Preset | Draw calls | Triangles | Verdict                               |
+| ------ | ---------- | --------- | ------------------------------------- |
+| Low    | 297        | 280k      | inside budget                         |
+| High   | **665**    | 1.12M     | **48% over the 450 draw-call budget** |
+
+Three causes, in order of size:
+
+1. **Nine guardians at fourteen meshes each.** Eyes, pupils, ears and belly
+   are separate draw calls, and every one is paid again for every shadow
+   cascade. None of it is visible past twenty metres. They are now grouped
+   into a `detail` node and hidden by distance -- the same for hatchlings in
+   their habitats.
+2. **Three shadow cascades at High.** Every caster is drawn once per cascade.
+   Moved to two at High, three at Ultra. The budget wins the argument, and
+   far-distance shadow crispness is exactly what an Ultra preset is for.
+3. **Fourteen separate twig meshes per nest**, 126 draw calls before anything
+   else was on screen. Baked into one shared geometry: nests are things a
+   child recognises by shape, so making each one subtly unique cost nine
+   geometries and bought nothing.
+
+Also culled the guardian vision cones by distance. Nine transparent discs
+metres across stack into near-full-screen overdraw, and a cone you cannot walk
+into does not help anyone plan. That one change took the software rasteriser
+in CI from seventeen seconds a frame to something usable.
+
+### What cannot be measured here, and is not claimed
+
+**Frame rate.** CI renders through a software rasteriser at a fraction of a
+frame per second. Any fps assertion made against it would be measuring
+SwiftShader. So `tests/e2e/perf.spec.ts` asserts draw calls and triangles --
+which are hardware-independent, are what the budget is actually written in,
+and are meaningful in CI and on a real machine alike.
+
+The "locked 60fps at 1080p on integrated graphics" target is therefore
+**unverified**. The work per frame is inside budget and the F3 overlay is
+there to check it on real hardware, but nobody has run this on an Iris Xe and
+I am not going to claim otherwise.

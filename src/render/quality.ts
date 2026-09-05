@@ -21,6 +21,15 @@ export interface QualitySettings {
   readonly envResolution: number;
   readonly ambientOcclusion: boolean;
   readonly aoSamples: number;
+  /**
+   * Render a dedicated normal pass for ambient occlusion.
+   *
+   * A normal pass is a second full render of the scene, and it measured at
+   * roughly 150 draw calls -- the difference between holding the 450 budget
+   * at High and missing it. Without it, AO derives its normals from the depth
+   * buffer instead: slightly softer around thin geometry, and free.
+   */
+  readonly aoNormalPass: boolean;
   readonly bloom: boolean;
   readonly godRays: boolean;
   readonly godRaySamples: number;
@@ -48,6 +57,7 @@ export const QUALITY_PRESETS: Record<QualityLevel, QualitySettings> = {
     envResolution: 64,
     ambientOcclusion: false,
     aoSamples: 0,
+    aoNormalPass: false,
     bloom: false,
     godRays: false,
     godRaySamples: 0,
@@ -72,6 +82,7 @@ export const QUALITY_PRESETS: Record<QualityLevel, QualitySettings> = {
     envResolution: 128,
     ambientOcclusion: true,
     aoSamples: 9,
+    aoNormalPass: false,
     bloom: true,
     godRays: false,
     godRaySamples: 0,
@@ -91,11 +102,20 @@ export const QUALITY_PRESETS: Record<QualityLevel, QualitySettings> = {
     level: 'high',
     maxDpr: 1.5,
     shadowMapSize: 2048,
-    shadowCascades: 3,
+    /*
+     * Two cascades at High, three only at Ultra.
+     *
+     * Every shadow-casting object is drawn once per cascade, and the measured
+     * draw count at three cascades was 665 against a 450 budget. The budget
+     * wins the argument: the third cascade goes to Ultra, where the extra
+     * far-distance shadow crispness is what the preset is for.
+     */
+    shadowCascades: 2,
     shadowDistance: 100,
     envResolution: 256,
     ambientOcclusion: true,
     aoSamples: 16,
+    aoNormalPass: false,
     bloom: true,
     godRays: true,
     godRaySamples: 42,
@@ -120,6 +140,7 @@ export const QUALITY_PRESETS: Record<QualityLevel, QualitySettings> = {
     envResolution: 512,
     ambientOcclusion: true,
     aoSamples: 24,
+    aoNormalPass: true,
     bloom: true,
     godRays: true,
     godRaySamples: 64,

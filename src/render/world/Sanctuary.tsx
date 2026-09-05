@@ -12,12 +12,14 @@ import { CuboidCollider, RigidBody } from '@react-three/rapier';
 import { useFrame } from '@react-three/fiber';
 import { useMemo, useRef } from 'react';
 import { MathUtils, type Group, type Mesh } from 'three';
+import { EGG } from '../../data/balance';
 import type { OwnedCreature } from '../../sim/types';
 import { requireSpecies } from '../../data/creatures';
 import { eggGeometry } from '../entities/eggMesh';
 import { useEggMaterial } from '../entities/EggEntity';
 import type { EggInIncubator } from '../../sim/types';
 import { CreatureInHabitat } from '../entities/CreatureInHabitat';
+import { fenceGeometry } from './fenceGeometry';
 
 export const SANCTUARY_RADIUS = 11;
 
@@ -39,13 +41,19 @@ export interface Station {
   readonly radius: number;
 }
 
-/** Fixed layout, so a returning player finds everything where they left it. */
+/**
+ * Fixed layout, so a returning player finds everything where they left it.
+ *
+ * The incubator sits between the spawn and the tutorial nest, so a child
+ * carrying their first egg home walks straight into it. Interaction radii
+ * come from `EGG.depositRadius` rather than being invented here.
+ */
 export const STATIONS: readonly Station[] = [
-  { id: 'incubator', position: [0, 0, -4.2], label: 'Incubator', radius: 2.4 },
-  { id: 'shop', position: [5.2, 0, 1.2], label: 'Ranger Store', radius: 2.4 },
-  { id: 'guide', position: [-5.2, 0, 1.2], label: 'Field Guide', radius: 2.2 },
-  { id: 'breeding', position: [-3.4, 0, -4.6], label: 'Breeding Hut', radius: 2.2 },
-  { id: 'track', position: [3.6, 0, -4.6], label: 'Training Track', radius: 2.2 },
+  { id: 'incubator', position: [0, 0, -1.5], label: 'Incubator', radius: EGG.depositRadius },
+  { id: 'shop', position: [5.6, 0, 2.4], label: 'Ranger Store', radius: EGG.depositRadius },
+  { id: 'guide', position: [-5.6, 0, 2.4], label: 'Field Guide', radius: EGG.depositRadius },
+  { id: 'breeding', position: [-4.4, 0, -3.6], label: 'Breeding Hut', radius: EGG.depositRadius },
+  { id: 'track', position: [4.4, 0, -3.6], label: 'Training Track', radius: EGG.depositRadius },
 ];
 
 export function Sanctuary({
@@ -270,25 +278,12 @@ function Habitat({
   return (
     <group position={position}>
       {/*
-        A low fence ring: six posts joined by a rail. The rail matters -- six
-        unconnected posts read as debris, not as a pen.
+        A low fence ring: six posts joined by a rail, baked into one shared
+        geometry. See fenceGeometry.ts for why -- eight meshes a pen is four
+        times the draw calls this needs.
       */}
-      {[0, 1, 2, 3, 4, 5].map((i) => {
-        const angle = (i / 6) * Math.PI * 2;
-        return (
-          <mesh
-            key={i}
-            position={[Math.cos(angle) * 1.15, 0.24, Math.sin(angle) * 1.15]}
-            castShadow
-          >
-            <boxGeometry args={[0.08, 0.48, 0.08]} />
-            <meshStandardMaterial color="#8a7048" roughness={0.9} />
-          </mesh>
-        );
-      })}
-      <mesh position={[0, 0.4, 0]} rotation={[-Math.PI / 2, 0, 0]} castShadow>
-        <torusGeometry args={[1.15, 0.035, 5, 20]} />
-        <meshStandardMaterial color="#9a7c50" roughness={0.9} />
+      <mesh geometry={fenceGeometry()} castShadow receiveShadow>
+        <meshStandardMaterial color="#8a7048" roughness={0.9} />
       </mesh>
       <mesh position={[0, 0.015, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <circleGeometry args={[1.2, 18]} />

@@ -92,7 +92,7 @@ export function PostChain({
   return (
     <EffectComposer
       multisampling={0}
-      enableNormalPass={quality.ambientOcclusion}
+      enableNormalPass={quality.aoNormalPass}
       // God rays render an extra internal pass and need the composer to keep
       // the previous frame's buffer, or their occlusion mask comes out wrong.
       autoClear={false}

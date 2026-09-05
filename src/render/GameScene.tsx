@@ -217,11 +217,37 @@ function VirtualInputBridge({ input }: { input: InputManager }): null {
   return null;
 }
 
+/**
+ * Reads the renderer's counters and starts the next frame's tally.
+ *
+ * three resets `info.render` inside every `render()` call, so reading it from
+ * an ordinary frame callback -- which runs *before* the render -- always
+ * returns zeros. Turning autoReset off and clearing it ourselves at the top
+ * of each frame means what we read is the previous frame's real totals.
+ *
+ * Priority -1000 so this is the first thing that runs each frame.
+ */
 function SampleRecorder(): null {
   useFrame((state) => {
     const { position } = state.camera;
-    recordSample(playerRef, position.x, position.y, position.z);
-  });
+    const info = state.gl.info;
+    info.autoReset = false;
+    recordSample(
+      playerRef,
+      position.x,
+      position.y,
+      position.z,
+      info.render.calls,
+      info.render.triangles,
+    );
+    perfMonitor.record(
+      info.render.calls,
+      info.render.triangles,
+      info.programs?.length ?? 0,
+      info.memory.textures,
+    );
+    info.reset();
+  }, -1000);
   return null;
 }
 
@@ -239,8 +265,8 @@ function PerfSampler({
     perfMonitor.configure(adaptive, lastLevel.current, onDrop);
   }, [adaptive, onDrop]);
 
-  useFrame((state, delta) => {
-    perfMonitor.frame(delta, state.gl.info);
+  useFrame((_state, delta) => {
+    perfMonitor.frame(delta);
   });
   return null;
 }

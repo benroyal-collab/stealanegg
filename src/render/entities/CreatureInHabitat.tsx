@@ -91,6 +91,12 @@ export function CreatureInHabitat({
     if (parts.tail !== null) {
       parts.tail.rotation.y = Math.sin(state.clock.elapsedTime * 2.2) * 0.22;
     }
+
+    // Same distance cull as the guardians: a habitat full of hatchlings is
+    // otherwise one of the heaviest things in the sanctuary.
+    const camera = state.camera.position;
+    const distance = Math.hypot(camera.x - g.position.x, camera.z - g.position.z);
+    parts.detail.visible = distance < 18;
   });
 
   return (

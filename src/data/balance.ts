@@ -158,8 +158,15 @@ export const EGG = {
   respawnSeconds: 20,
   /** Rare and above only re-roll on this slower cycle. */
   rarePlusCycleSeconds: 300,
-  grabRadius: 1.9,
-  depositRadius: 2.6,
+  /**
+   * Generous on purpose.
+   *
+   * A child lining up a pickup should not have to be precise about it, and
+   * every centimetre of tolerance here comes straight off the frustration
+   * budget. The escape is where the skill lives; the grab is not.
+   */
+  grabRadius: 2.6,
+  depositRadius: 3.2,
 } as const;
 
 // ---------------------------------------------------------------------------

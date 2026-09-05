@@ -25,12 +25,6 @@ export interface PerfSnapshot {
   overBudget: boolean;
 }
 
-interface RendererInfo {
-  render: { calls: number; triangles: number };
-  memory: { geometries: number; textures: number };
-  programs?: { length: number } | null;
-}
-
 const WINDOW = 90;
 
 class PerfMonitor {
@@ -57,7 +51,23 @@ class PerfMonitor {
     this.adaptive = adaptive ? new AdaptiveQuality(level, onDrop) : null;
   }
 
-  frame(delta: number, info: RendererInfo): void {
+  /**
+   * Renderer counters for the frame that just finished.
+   *
+   * Fed separately from `frame()` because they have to be read before three
+   * clears them -- see SampleRecorder in GameScene.
+   */
+  record(drawCalls: number, triangles: number, programs: number, textures = 0): void {
+    const s = this.snapshot;
+    s.drawCalls = drawCalls;
+    s.triangles = triangles;
+    s.programs = programs;
+    // Rough: an RGBA8 texture with mipmaps, averaged. Enough to spot a leak,
+    // which is all a live counter is good for.
+    if (textures > 0) s.textureMemoryMb = Math.round(textures * 1.4);
+  }
+
+  frame(delta: number): void {
     const ms = delta * 1000;
     this.elapsed += ms;
 
@@ -68,12 +78,6 @@ class PerfMonitor {
     const s = this.snapshot;
     s.frameMs = ms;
     s.fps = ms > 0 ? 1000 / ms : 0;
-    s.drawCalls = info.render.calls;
-    s.triangles = info.render.triangles;
-    s.programs = info.programs?.length ?? 0;
-    // Rough: an RGBA8 texture with mipmaps, averaged. Enough to spot a leak,
-    // which is all a live counter is good for.
-    s.textureMemoryMb = Math.round((info.memory.textures * 1.4 * 1024 * 1024) / 1_048_576);
     s.p95Ms = this.percentile(0.95);
     s.overBudget =
       s.p95Ms > PERFORMANCE_BUDGET.cpuFrameMs + PERFORMANCE_BUDGET.gpuFrameMs ||

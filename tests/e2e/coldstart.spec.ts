@@ -49,16 +49,22 @@ test('a cold start reaches the first egg on on-screen guidance alone', async ({ 
   const prompt = page.locator('.prompt');
   let found = false;
 
-  for (let leg = 0; leg < 30 && !found; leg++) {
-    await drive(page, { moveY: -1, sprint: true }, 2500);
+  let sweepBack = false;
+  for (let leg = 0; leg < 60 && !found; leg++) {
+    await drive(page, { moveY: sweepBack ? 1 : -1, sprint: true }, 3000);
     if ((await prompt.count()) > 0) {
       const text = (await prompt.textContent()) ?? '';
       if (/pick up/i.test(text)) found = true;
     }
     const state = await sample(page);
-    // Overshot the nest: sweep back and forth rather than walking to the rim.
-    if (state !== null && state.z < -26) {
-      await drive(page, { moveY: 1, sprint: true }, 2000);
+    if (state !== null) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `leg ${leg}: z=${state.z.toFixed(1)} frame=${state.frame} draws=${state.drawCalls} tris=${state.triangles}`,
+      );
+      // Sweep back and forth around the nest rather than walking to the rim.
+      if (state.z < -24) sweepBack = true;
+      if (state.z > 2) sweepBack = false;
     }
   }
   await stopMoving(page);

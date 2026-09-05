@@ -8,7 +8,7 @@
  * a second.
  */
 
-import { GUARDIAN, RIVALS, TOOL_DEFS } from '../data/balance';
+import { EGG, GUARDIAN, RIVALS, TOOL_DEFS } from '../data/balance';
 import { BIOME_DEFS } from '../data/biomes';
 import {
   createGuardianRuntime,
@@ -316,7 +316,9 @@ export function stepLoop(
 
   // --- what can the player interact with right now? ------------------------
   runtime.grabTarget =
-    runtime.carried === null ? nearestEgg(runtime.nests, input.playerPosition, 1.9) : null;
+    runtime.carried === null
+      ? nearestEgg(runtime.nests, input.playerPosition, EGG.grabRadius)
+      : null;
 }
 
 /** Player pressed Grab on a nest. */

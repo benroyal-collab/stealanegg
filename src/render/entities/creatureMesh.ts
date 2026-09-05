@@ -29,6 +29,16 @@ export interface CreatureParts {
   head: Mesh;
   legs: Group[];
   tail: Group | null;
+  /**
+   * Small features -- eyes, pupils, ears, belly -- collected so they can be
+   * hidden at distance.
+   *
+   * Each one is its own draw call, and every draw call is paid again for
+   * every shadow cascade. Nine guardians with fourteen meshes apiece was
+   * comfortably the largest single item in the frame's draw budget, and none
+   * of it is visible past about twenty metres.
+   */
+  detail: Group;
   /** Disposed together when the creature leaves the scene. */
   owned: (BufferGeometry | Material)[];
 }
@@ -49,6 +59,9 @@ export function buildCreature(body: CreatureBody, scale = 1): CreatureParts {
   const root = new Group();
   root.scale.setScalar(scale);
 
+  // Everything small enough to disappear at range goes in here.
+  const detail = new Group();
+
   // --- body ---------------------------------------------------------------
   const bodyGeo = new CapsuleGeometry(body.bodyRadius, body.bodyRadius * body.bodyStretch, 6, 14);
   bodyGeo.rotateX(Math.PI / 2);
@@ -65,6 +78,8 @@ export function buildCreature(body: CreatureBody, scale = 1): CreatureParts {
   bellyMesh.position.set(0, -body.bodyRadius * 0.28, body.bodyRadius * 0.18);
   bellyMesh.scale.set(1, 0.72, 1.15);
   bodyMesh.add(bellyMesh);
+  detail.attach(bellyMesh);
+  bodyMesh.add(detail);
 
   // --- head ---------------------------------------------------------------
   const headRadius = body.bodyRadius * 0.72;
@@ -86,6 +101,8 @@ export function buildCreature(body: CreatureBody, scale = 1): CreatureParts {
     const iris = new Mesh(pupilGeo, pupil);
     iris.position.set(0, 0, body.eyeSize * 0.62);
     eye.add(iris);
+    detail.attach(eye);
+    head.add(eye);
   }
 
   // --- ears ---------------------------------------------------------------
@@ -97,6 +114,8 @@ export function buildCreature(body: CreatureBody, scale = 1): CreatureParts {
       mesh.castShadow = true;
       mesh.position.set(side * headRadius * 0.52, headRadius * 0.72, -headRadius * 0.1);
       mesh.rotation.z = side * 0.28;
+      head.add(mesh);
+      detail.attach(mesh);
       head.add(mesh);
     }
   }
@@ -138,7 +157,7 @@ export function buildCreature(body: CreatureBody, scale = 1): CreatureParts {
     bodyMesh.add(tail);
   }
 
-  return { root, body: bodyMesh, head, legs, tail, owned };
+  return { root, body: bodyMesh, head, legs, tail, detail, owned };
 }
 
 function earGeometry(style: CreatureBody['earStyle'], headRadius: number): BufferGeometry {

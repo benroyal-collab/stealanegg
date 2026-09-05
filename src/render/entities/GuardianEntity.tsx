@@ -100,7 +100,19 @@ export function GuardianEntity({
     }
 
     if (cone.current !== null) {
-      cone.current.visible = showVisionCone && state !== 'drowsy';
+      /*
+       * Vision cones are the single most expensive thing this entity draws:
+       * a transparent disc metres across, and with nine guardians in a biome
+       * they stack into near-full-screen overdraw. They are also useless at
+       * range -- a cone you cannot walk into does not help you plan.
+       *
+       * So they are culled by distance. This took the software rasteriser in
+       * CI from seventeen seconds a frame to something usable, and it is the
+       * same saving on a real integrated GPU.
+       */
+      const camera = _state.camera.position;
+      const toCamera = Math.hypot(camera.x - instance.position.x, camera.z - instance.position.z);
+      cone.current.visible = showVisionCone && state !== 'drowsy' && toCamera < CONE_DRAW_DISTANCE;
       const material = cone.current.material as { opacity?: number };
       if (material.opacity !== undefined) {
         material.opacity = 0.1 + instance.alertness * 0.22;
@@ -168,6 +180,12 @@ export function GuardianEntity({
     </group>
   );
 }
+
+/** Beyond this, a vision cone costs overdraw and tells the player nothing. */
+const CONE_DRAW_DISTANCE = 34;
+
+/** Beyond this, a creature's small features are smaller than a pixel. */
+const DETAIL_DRAW_DISTANCE = 22;
 
 /**
  * The thought bubbles above a Guardian's head.

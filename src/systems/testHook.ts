@@ -23,6 +23,8 @@ export interface TestSample {
   cameraZ: number;
   cameraDistance: number;
   frame: number;
+  drawCalls: number;
+  triangles: number;
 }
 
 export interface TestHook {
@@ -96,6 +98,8 @@ export function recordSample(
   cameraX: number,
   cameraY: number,
   cameraZ: number,
+  drawCalls = 0,
+  triangles = 0,
 ): void {
   if (!testHookEnabled()) return;
   frame += 1;
@@ -118,6 +122,8 @@ export function recordSample(
     cameraZ,
     cameraDistance: distance,
     frame,
+    drawCalls,
+    triangles,
   };
   // Keep the tail bounded; the gates only ever look at the last few thousand.
   history.push(latest);
