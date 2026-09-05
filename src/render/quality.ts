@@ -117,8 +117,22 @@ export const QUALITY_PRESETS: Record<QualityLevel, QualitySettings> = {
     aoSamples: 16,
     aoNormalPass: false,
     bloom: true,
-    godRays: true,
-    godRaySamples: 42,
+    /*
+     * God rays are an Ultra feature, reluctantly.
+     *
+     * The effect renders the whole scene a second time into an occlusion
+     * buffer, and measurement put High at 525 draw calls against a 450
+     * budget with it on. The brief's own rule settles it: if a feature
+     * cannot hold the budget it gets gated behind Ultra, and the budget
+     * wins the argument.
+     *
+     * This costs Whisper Glade its light shafts below Ultra, which is a real
+     * loss and is worth coming back to -- ROADMAP.md notes the cheaper way
+     * (a handful of camera-facing shaft quads, which is how most games
+     * actually do this) as the route to having them back at High.
+     */
+    godRays: false,
+    godRaySamples: 0,
     antialias: 'smaa',
     grain: true,
     chromaticAberration: true,

@@ -133,6 +133,14 @@ victory lap, and it should look like one.
 
 ## Cross-cutting work the roadmap needs
 
+- **Cheaper volumetric light shafts.** The current god rays render the whole
+  scene a second time into an occlusion buffer, which put High at 525 draw
+  calls against a 450 budget, so they are gated behind Ultra. The way most
+  games actually do this is a handful of camera-facing shaft quads placed
+  along the sun direction with a soft additive material -- a few draw calls
+  rather than a full pass. That would bring the shafts back at High, where
+  Whisper Glade and Mirrormere genuinely want them.
+
 These are not biomes, but biomes 4–10 will not feel finished without them.
 
 - **Number formatting past a billion.** `formatMoney` handles up to trillions;
