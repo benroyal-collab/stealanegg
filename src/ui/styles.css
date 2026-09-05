@@ -23,3 +23,36 @@ canvas {
   display: block;
   touch-action: none;
 }
+
+.boot {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 1.2rem;
+  height: 100%;
+  font-size: 1.1rem;
+  color: #cfe0d2;
+}
+.boot__egg {
+  width: 54px;
+  height: 68px;
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  background: linear-gradient(160deg, #f6e7c8, #c9a86b);
+  animation: boot-rock 1.8s ease-in-out infinite;
+}
+@keyframes boot-rock {
+  0%,
+  100% {
+    transform: rotate(-6deg);
+  }
+  50% {
+    transform: rotate(6deg);
+  }
+}
+/* Photosensitivity and vestibular safety: never animate for someone who has
+   asked us not to. */
+@media (prefers-reduced-motion: reduce) {
+  .boot__egg {
+    animation: none;
+  }
+}

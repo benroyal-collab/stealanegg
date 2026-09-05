@@ -69,6 +69,20 @@ pacing windows they produce, so the file is under test.
 - Nothing is signalled by colour alone — rarity carries a word and a pip
   count, mutations carry a badge shape.
 
+## Level-design rules that fall out of the movement solver
+
+- **No critical path may require clearing more than 1.0 m.** A plain jump
+  apexes at 1.06 m; the vault handles up to 1.45 m. Ledges between those
+  heights are vault-only, which is a good way to _teach_ the vault but must
+  never be the only way past something. A child who never discovers the vault
+  has to be able to finish every route.
+- **Nests sit within about 40 m of a safe route home.** A full stamina bar
+  buys 36 m of sprint. Further than that and the escape stops being a skill
+  moment and becomes a jog.
+- **Cover has to break line of sight at crouch height.** Guardian vision is a
+  cone from roughly chest height; anything a player can hide behind must
+  actually occlude the ray, not just look like it does.
+
 ## Performance budget
 
 60fps at 1080p on integrated graphics. CPU ≤ 6ms, GPU ≤ 12ms at High, ≤ 450

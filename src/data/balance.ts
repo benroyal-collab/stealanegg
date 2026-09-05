@@ -16,8 +16,17 @@ export const MOVEMENT = {
   basePace: 6.0,
   walkSpeed: 2.6,
   crouchSpeed: 1.4,
-  /** Sprint is a multiplier on the current Pace, not a separate speed. */
-  sprintMultiplier: 1.0,
+  /**
+   * Jogging (stick held, sprint not held) as a fraction of Pace.
+   *
+   * Expressed as a fraction rather than a fixed speed on purpose: it keeps
+   * the sprint-to-jog gear change at a constant 1.67x no matter how many
+   * Training Track levels the player has bought. A fixed jog speed would make
+   * sprint feel more and more dramatic as Pace rose, and an additive blend
+   * would do the same thing more slowly. Neither is what we want -- the gear
+   * change should feel identical in every biome.
+   */
+  jogFraction: 0.6,
   /** Ground acceleration, m/s^2. High enough to feel responsive, not twitchy. */
   acceleration: 42,
   deceleration: 30,
@@ -51,6 +60,12 @@ export const STAMINA = {
   regenDelaySeconds: 1,
   /** Sprinting below this is refused so the player never stutters. */
   minToStart: 0.6,
+  /**
+   * After the bar empties, sprint stays locked out until it has recovered to
+   * this fraction. Without it, holding sprint on an empty bar produces a
+   * sprint/walk stutter every few frames -- the classic bad stamina feel.
+   */
+  exhaustRecoverFraction: 0.55,
 } as const;
 
 export const CAMERA = {
