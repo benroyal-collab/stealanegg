@@ -80,7 +80,10 @@ export function PlayerAvatar(): React.ReactElement {
     lean.current = MathUtils.damp(lean.current, wantLean, 8, dt);
 
     if (hips.current) {
-      hips.current.position.y = 0.9 + (crouched ? -0.32 : 0) + bob.current;
+      // 0.72 puts the soles within a centimetre of the root, which is where
+      // the movement solver reports the feet to be. Any higher and the ranger
+      // hovers; any lower and the shins sink into the terrain.
+      hips.current.position.y = 0.72 + (crouched ? -0.26 : 0) + bob.current;
       hips.current.rotation.y = swing * 0.12 * norm;
       hips.current.rotation.x = lean.current + (crouched ? 0.28 : 0);
     }
@@ -109,24 +112,24 @@ export function PlayerAvatar(): React.ReactElement {
 
   return (
     <group ref={root}>
-      <group ref={hips} position={[0, 0.9, 0]}>
+      <group ref={hips} position={[0, 0.72, 0]}>
         {/* Legs */}
         <group ref={legL} position={[-0.11, 0, 0]}>
-          <mesh position={[0, -0.28, 0]} castShadow>
-            <capsuleGeometry args={[0.075, 0.4, 4, 10]} />
+          <mesh position={[0, -0.3, 0]} castShadow>
+            <capsuleGeometry args={[0.075, 0.44, 4, 10]} />
             <meshStandardMaterial color={TROUSER} roughness={0.85} />
           </mesh>
-          <mesh position={[0, -0.56, 0.04]} castShadow>
+          <mesh position={[0, -0.63, 0.04]} castShadow>
             <boxGeometry args={[0.13, 0.09, 0.24]} />
             <meshStandardMaterial color="#3a3128" roughness={0.7} />
           </mesh>
         </group>
         <group ref={legR} position={[0.11, 0, 0]}>
-          <mesh position={[0, -0.28, 0]} castShadow>
-            <capsuleGeometry args={[0.075, 0.4, 4, 10]} />
+          <mesh position={[0, -0.3, 0]} castShadow>
+            <capsuleGeometry args={[0.075, 0.44, 4, 10]} />
             <meshStandardMaterial color={TROUSER} roughness={0.85} />
           </mesh>
-          <mesh position={[0, -0.56, 0.04]} castShadow>
+          <mesh position={[0, -0.63, 0.04]} castShadow>
             <boxGeometry args={[0.13, 0.09, 0.24]} />
             <meshStandardMaterial color="#3a3128" roughness={0.7} />
           </mesh>

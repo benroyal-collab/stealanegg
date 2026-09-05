@@ -1,0 +1,376 @@
+/**
+ * The sanctuary: incubator, habitats, training track, shop hut.
+ *
+ * Everything here is diegetic. There is no "shop menu button" -- you walk up
+ * to the hut. There is no "incubate" command -- you carry the egg to the
+ * incubator and put it down. An eight year old should be able to work out
+ * what every building does by looking at it, which is why each one has a
+ * distinct silhouette and a big icon on a signboard.
+ */
+
+import { CuboidCollider, RigidBody } from '@react-three/rapier';
+import { useFrame } from '@react-three/fiber';
+import { useMemo, useRef } from 'react';
+import { MathUtils, type Group, type Mesh } from 'three';
+import type { OwnedCreature } from '../../sim/types';
+import { requireSpecies } from '../../data/creatures';
+import { eggGeometry } from '../entities/eggMesh';
+import { useEggMaterial } from '../entities/EggEntity';
+import type { EggInIncubator } from '../../sim/types';
+import { CreatureInHabitat } from '../entities/CreatureInHabitat';
+
+export const SANCTUARY_RADIUS = 11;
+
+export interface SanctuaryProps {
+  groundY: number;
+  incubator: EggInIncubator | null;
+  creatures: readonly OwnedCreature[];
+  habitatSlots: number;
+  /** Highlighted station, so the player can see what pressing Grab will do. */
+  activeStation: StationId | null;
+}
+
+export type StationId = 'incubator' | 'shop' | 'guide' | 'breeding' | 'track';
+
+export interface Station {
+  readonly id: StationId;
+  readonly position: readonly [number, number, number];
+  readonly label: string;
+  readonly radius: number;
+}
+
+/** Fixed layout, so a returning player finds everything where they left it. */
+export const STATIONS: readonly Station[] = [
+  { id: 'incubator', position: [0, 0, -4.2], label: 'Incubator', radius: 2.4 },
+  { id: 'shop', position: [5.2, 0, 1.2], label: 'Ranger Store', radius: 2.4 },
+  { id: 'guide', position: [-5.2, 0, 1.2], label: 'Field Guide', radius: 2.2 },
+  { id: 'breeding', position: [-3.4, 0, -4.6], label: 'Breeding Hut', radius: 2.2 },
+  { id: 'track', position: [3.6, 0, -4.6], label: 'Training Track', radius: 2.2 },
+];
+
+export function Sanctuary({
+  groundY,
+  incubator,
+  creatures,
+  habitatSlots,
+  activeStation,
+}: SanctuaryProps): React.ReactElement {
+  const habitatPositions = useMemo(() => {
+    // A gentle arc in front of the sanctuary, so the collection is the first
+    // thing you see when you come home with an egg.
+    const out: [number, number, number][] = [];
+    for (let i = 0; i < habitatSlots; i++) {
+      const t = habitatSlots === 1 ? 0.5 : i / (habitatSlots - 1);
+      const angle = Math.PI * (0.15 + t * 0.7);
+      const radius = 7.4 + (i % 2) * 1.1;
+      out.push([Math.cos(angle) * radius, 0, Math.sin(angle) * radius]);
+    }
+    return out;
+  }, [habitatSlots]);
+
+  return (
+    <group position={[0, groundY, 0]}>
+      {/* A trodden clearing, so the ground reads as "somewhere people are". */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]} receiveShadow>
+        <circleGeometry args={[SANCTUARY_RADIUS, 40]} />
+        <meshStandardMaterial color="#9a8f6e" roughness={0.96} />
+      </mesh>
+
+      <Incubator
+        position={STATIONS[0]!.position}
+        contents={incubator}
+        highlighted={activeStation === 'incubator'}
+      />
+      <Hut
+        position={STATIONS[1]!.position}
+        colour="#a8683c"
+        icon="coin"
+        highlighted={activeStation === 'shop'}
+      />
+      <Hut
+        position={STATIONS[2]!.position}
+        colour="#4c7ba8"
+        icon="book"
+        highlighted={activeStation === 'guide'}
+      />
+      <Hut
+        position={STATIONS[3]!.position}
+        colour="#7a5a9a"
+        icon="fuse"
+        highlighted={activeStation === 'breeding'}
+      />
+      <TrainingTrack position={STATIONS[4]!.position} highlighted={activeStation === 'track'} />
+
+      {habitatPositions.map((position, slot) => {
+        const occupant = creatures.find((c) => c.slot === slot) ?? null;
+        return <Habitat key={slot} position={position} occupant={occupant} />;
+      })}
+    </group>
+  );
+}
+
+function Incubator({
+  position,
+  contents,
+  highlighted,
+}: {
+  position: readonly [number, number, number];
+  contents: EggInIncubator | null;
+  highlighted: boolean;
+}): React.ReactElement {
+  const glow = useRef<Mesh>(null);
+  const eggGroup = useRef<Group>(null);
+
+  const ready = contents !== null && contents.remaining <= 0;
+  const progress = contents === null ? 0 : 1 - contents.remaining / Math.max(contents.total, 0.001);
+
+  useFrame((state, delta) => {
+    if (glow.current !== null) {
+      const material = glow.current.material as { emissiveIntensity?: number };
+      if (material.emissiveIntensity !== undefined) {
+        // Warmth rises as the egg gets closer to hatching. Slow on purpose:
+        // nothing in this game pulses fast enough to bother anyone.
+        const target =
+          0.2 + progress * 1.4 + (ready ? Math.sin(state.clock.elapsedTime * 1.6) * 0.3 : 0);
+        material.emissiveIntensity = MathUtils.damp(material.emissiveIntensity, target, 4, delta);
+      }
+    }
+    if (eggGroup.current !== null && contents !== null) {
+      // A wobble that grows as it gets close. This is the anticipation.
+      const wobble = Math.sin(state.clock.elapsedTime * (2 + progress * 5)) * 0.06 * progress;
+      eggGroup.current.rotation.z = wobble;
+      eggGroup.current.position.y = 0.72 + Math.abs(wobble) * 0.4;
+    }
+  });
+
+  return (
+    <group position={[position[0], position[1], position[2]]}>
+      <RigidBody type="fixed" colliders={false}>
+        <CuboidCollider args={[0.75, 0.45, 0.6]} position={[0, 0.45, 0]} />
+      </RigidBody>
+
+      {/* Warm stone base. */}
+      <mesh position={[0, 0.28, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.78, 0.9, 0.56, 10]} />
+        <meshStandardMaterial color="#8a7a66" roughness={0.9} />
+      </mesh>
+      <mesh ref={glow} position={[0, 0.58, 0]} castShadow>
+        <cylinderGeometry args={[0.6, 0.68, 0.14, 10]} />
+        <meshStandardMaterial
+          color="#c98a4a"
+          emissive="#ff8a3a"
+          emissiveIntensity={0.2}
+          roughness={0.65}
+        />
+      </mesh>
+
+      {contents !== null ? (
+        <group ref={eggGroup} position={[0, 0.72, 0]}>
+          <IncubatorEgg contents={contents} />
+        </group>
+      ) : null}
+
+      <Signboard icon="egg-warm" highlighted={highlighted} height={1.5} />
+    </group>
+  );
+}
+
+function IncubatorEgg({ contents }: { contents: EggInIncubator }): React.ReactElement {
+  const material = useEggMaterial(contents.roll);
+  const geometry = useMemo(
+    () => eggGeometry(contents.roll.rarity, contents.roll.size),
+    [contents.roll.rarity, contents.roll.size],
+  );
+  return <mesh geometry={geometry} material={material} castShadow />;
+}
+
+function Hut({
+  position,
+  colour,
+  icon,
+  highlighted,
+}: {
+  position: readonly [number, number, number];
+  colour: string;
+  icon: string;
+  highlighted: boolean;
+}): React.ReactElement {
+  return (
+    <group position={[position[0], position[1], position[2]]}>
+      <RigidBody type="fixed" colliders={false}>
+        <CuboidCollider args={[0.95, 0.9, 0.95]} position={[0, 0.9, 0]} />
+      </RigidBody>
+      <mesh position={[0, 0.75, 0]} castShadow receiveShadow>
+        <boxGeometry args={[1.8, 1.5, 1.8]} />
+        <meshStandardMaterial color="#c4a882" roughness={0.88} />
+      </mesh>
+      <mesh position={[0, 1.72, 0]} rotation={[0, Math.PI / 4, 0]} castShadow>
+        <coneGeometry args={[1.55, 0.85, 4]} />
+        <meshStandardMaterial color={colour} roughness={0.8} />
+      </mesh>
+      <Signboard icon={icon} highlighted={highlighted} height={2.5} />
+    </group>
+  );
+}
+
+function TrainingTrack({
+  position,
+  highlighted,
+}: {
+  position: readonly [number, number, number];
+  highlighted: boolean;
+}): React.ReactElement {
+  return (
+    <group position={[position[0], position[1], position[2]]}>
+      <RigidBody type="fixed" colliders={false}>
+        <CuboidCollider args={[1.1, 0.3, 0.35]} position={[0, 0.3, 0]} />
+      </RigidBody>
+      {/* Two hurdles and a strip of track. Reads as "go faster" instantly. */}
+      <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[2.4, 1.2]} />
+        <meshStandardMaterial color="#b06a4a" roughness={0.95} />
+      </mesh>
+      {[-0.6, 0.6].map((x) => (
+        <group key={x} position={[x, 0, 0]}>
+          <mesh position={[0, 0.3, -0.35]} castShadow>
+            <boxGeometry args={[0.07, 0.6, 0.07]} />
+            <meshStandardMaterial color="#e8e2d4" roughness={0.7} />
+          </mesh>
+          <mesh position={[0, 0.3, 0.35]} castShadow>
+            <boxGeometry args={[0.07, 0.6, 0.07]} />
+            <meshStandardMaterial color="#e8e2d4" roughness={0.7} />
+          </mesh>
+          <mesh position={[0, 0.56, 0]} castShadow>
+            <boxGeometry args={[0.06, 0.06, 0.78]} />
+            <meshStandardMaterial color="#e8e2d4" roughness={0.7} />
+          </mesh>
+        </group>
+      ))}
+      <Signboard icon="boot-run" highlighted={highlighted} height={1.4} />
+    </group>
+  );
+}
+
+function Habitat({
+  position,
+  occupant,
+}: {
+  position: [number, number, number];
+  occupant: OwnedCreature | null;
+}): React.ReactElement {
+  return (
+    <group position={position}>
+      {/* A low fence ring. Four posts and a rail, nothing more. */}
+      {[0, 1, 2, 3, 4, 5].map((i) => {
+        const angle = (i / 6) * Math.PI * 2;
+        return (
+          <mesh
+            key={i}
+            position={[Math.cos(angle) * 1.15, 0.24, Math.sin(angle) * 1.15]}
+            castShadow
+          >
+            <boxGeometry args={[0.08, 0.48, 0.08]} />
+            <meshStandardMaterial color="#8a7048" roughness={0.9} />
+          </mesh>
+        );
+      })}
+      <mesh position={[0, 0.015, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <circleGeometry args={[1.2, 18]} />
+        <meshStandardMaterial color="#6f7f4a" roughness={0.95} />
+      </mesh>
+
+      {occupant !== null ? (
+        <CreatureInHabitat
+          body={requireSpecies(occupant.speciesId).body}
+          mutation={occupant.mutation}
+          size={occupant.size}
+        />
+      ) : null}
+    </group>
+  );
+}
+
+/**
+ * A signboard with a shape on it.
+ *
+ * Reading age eight means every station is labelled with a picture first and
+ * a word second, and the word only appears once the player is close enough
+ * for the HUD prompt to show.
+ */
+function Signboard({
+  icon,
+  highlighted,
+  height,
+}: {
+  icon: string;
+  highlighted: boolean;
+  height: number;
+}): React.ReactElement {
+  const board = useRef<Group>(null);
+  useFrame((state, delta) => {
+    if (board.current === null) return;
+    const target = highlighted ? 1.18 : 1;
+    board.current.scale.setScalar(MathUtils.damp(board.current.scale.x, target, 10, delta));
+    board.current.quaternion.copy(state.camera.quaternion);
+  });
+
+  return (
+    <group ref={board} position={[0, height, 0]}>
+      <mesh>
+        <circleGeometry args={[0.32, 20]} />
+        <meshBasicMaterial color={highlighted ? '#fff3d0' : '#e0d6bc'} toneMapped={false} />
+      </mesh>
+      <StationIcon icon={icon} />
+    </group>
+  );
+}
+
+function StationIcon({ icon }: { icon: string }): React.ReactElement {
+  const colour = '#3a3226';
+  switch (icon) {
+    case 'coin':
+      return (
+        <mesh position={[0, 0, 0.01]}>
+          <ringGeometry args={[0.09, 0.17, 16]} />
+          <meshBasicMaterial color={colour} toneMapped={false} />
+        </mesh>
+      );
+    case 'book':
+      return (
+        <mesh position={[0, 0, 0.01]}>
+          <planeGeometry args={[0.26, 0.2]} />
+          <meshBasicMaterial color={colour} toneMapped={false} />
+        </mesh>
+      );
+    case 'fuse':
+      return (
+        <group position={[0, 0, 0.01]}>
+          {[-0.09, 0, 0.09].map((x, i) => (
+            <mesh key={i} position={[x, i === 1 ? 0.06 : -0.04, 0]}>
+              <circleGeometry args={[0.055, 12]} />
+              <meshBasicMaterial color={colour} toneMapped={false} />
+            </mesh>
+          ))}
+        </group>
+      );
+    case 'boot-run':
+      return (
+        <group position={[0, 0, 0.01]}>
+          {[0, 1, 2].map((i) => (
+            <mesh key={i} position={[-0.12 + i * 0.12, -0.02 + i * 0.03, 0]}>
+              <planeGeometry args={[0.07, 0.02]} />
+              <meshBasicMaterial color={colour} toneMapped={false} />
+            </mesh>
+          ))}
+        </group>
+      );
+    case 'egg-warm':
+    default:
+      return (
+        <mesh position={[0, 0, 0.01]} scale={[0.75, 1, 1]}>
+          <circleGeometry args={[0.15, 16]} />
+          <meshBasicMaterial color={colour} toneMapped={false} />
+        </mesh>
+      );
+  }
+}

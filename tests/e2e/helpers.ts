@@ -32,6 +32,7 @@ declare global {
     __eggheist?: {
       enabled: true;
       sample: () => TestSample | null;
+      frames: () => number;
       history: () => TestSample[];
       setVirtualInput: (patch: Partial<VirtualInput>) => void;
       ready: () => boolean;
@@ -79,4 +80,47 @@ export async function history(page: Page): Promise<TestSample[]> {
 
 export async function sample(page: Page): Promise<TestSample | null> {
   return page.evaluate(() => window.__eggheist?.sample() ?? null);
+}
+
+/**
+ * Wait until the renderer has produced enough frames that everything
+ * one-shot has happened: the environment bake, the CSM material patch pass,
+ * the shader compiles and the foliage upload. Screenshotting before this
+ * captures a half-built scene.
+ *
+ * The count is low because CI renders through a software rasteriser at well
+ * under one frame per second with the full pipeline on. Everything one-shot
+ * lands inside the first handful of frames, so a dozen is plenty and a
+ * hundred would simply time out.
+ */
+export async function settle(page: Page, frames = 14): Promise<void> {
+  const start = (await page.evaluate(() => window.__eggheist?.frames() ?? 0)) as number;
+  await page.waitForFunction(
+    (target) => (window.__eggheist?.frames() ?? 0) > target,
+    start + frames,
+    { timeout: 180_000, polling: 500 },
+  );
+}
+
+/** Load the game at a specific biome and quality preset. */
+export async function bootBiome(page: Page, biome: string, quality: string): Promise<void> {
+  await page.addInitScript(
+    ({ b, q }) => {
+      window.localStorage.setItem(
+        'egg-heist-wildlands/save',
+        JSON.stringify({
+          version: 1,
+          currentBiome: b,
+          upgrades: { trainingTrack: 20 },
+          settings: { quality: q, captions: true },
+        }),
+      );
+    },
+    { b: biome, q: quality },
+  );
+  await page.goto('/?e2e=1');
+  await page.waitForFunction(() => window.__eggheist?.ready() === true, undefined, {
+    timeout: 120_000,
+  });
+  await settle(page);
 }

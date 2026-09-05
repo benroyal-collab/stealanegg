@@ -33,6 +33,27 @@ export default tseslint.config(
     },
   },
   {
+    /*
+     * The render layer drives a game loop, not a React render.
+     *
+     * `react-hooks/immutability` is a React Compiler purity rule: it forbids
+     * mutating anything a hook returned. That is right for render code and
+     * wrong for a `useFrame` callback, which is a per-frame imperative loop
+     * outside React's render and commit phases entirely. Every three.js
+     * component mutates matrices, uniforms and materials there, and the
+     * alternative -- rebuilding a Vector3 sixty times a second per entity --
+     * is precisely the per-frame allocation the performance budget forbids.
+     *
+     * Scoped as narrowly as possible: only this rule, only under src/render.
+     * `rules-of-hooks` and `exhaustive-deps` stay on everywhere, and the whole
+     * rule set stays on for ui/, systems/, state/ and sim/.
+     */
+    files: ['src/render/**/*.{ts,tsx}'],
+    rules: {
+      'react-hooks/immutability': 'off',
+    },
+  },
+  {
     // The sim layer is the headless authority. It must never reach for a
     // renderer, React, or the DOM -- that separation is what makes it testable.
     files: ['src/sim/**/*.ts', 'src/data/**/*.ts'],

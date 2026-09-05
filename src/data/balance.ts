@@ -50,8 +50,13 @@ export const MOVEMENT = {
   slideFriction: 3.1,
   slideMinEntrySpeed: 5.0,
   capsuleRadius: 0.34,
-  capsuleHeight: 1.62,
-  crouchCapsuleHeight: 0.95,
+  /**
+   * Cylinder section only -- total capsule height is this plus two radii, so
+   * 0.95 + 0.68 gives a 1.63m character. The ranger is a child, and a capsule
+   * sized for an adult left them visibly hovering above their own feet.
+   */
+  capsuleHeight: 0.95,
+  crouchCapsuleHeight: 0.5,
 } as const;
 
 export const STAMINA = {
@@ -209,9 +214,21 @@ export const UPGRADE_DEFS: Record<
   UpgradeId,
   { baseCost: number; curve: number; maxLevel: number; label: string; icon: string }
 > = {
+  /**
+   * Training Track is the spine, so it is the steepest curve in the game and
+   * the one the 200-session simulation was tuned against.
+   *
+   * The brief's opening pass was 250 x 1.75^n. Run against the real economy
+   * that unlocked Mirrormere at about twelve minutes and Amber Dunes at
+   * thirty -- Mirrormere just inside its window, Amber Dunes far ahead of the
+   * 45-70 minute one. The fix is a cheaper first rung and a much steeper
+   * climb: the opening levels stay reachable inside the first minute, which
+   * is where a child needs to feel progress, and the late ones absorb the
+   * compounding income that mutations produce. See tests/unit/pacing.test.ts.
+   */
   trainingTrack: {
-    baseCost: 250,
-    curve: 1.75,
+    baseCost: 150,
+    curve: 2.2,
     maxLevel: 24,
     label: 'Training Track',
     icon: 'boot-run',
@@ -225,8 +242,16 @@ export const UPGRADE_DEFS: Record<
 export const PACE = {
   /** Training Track adds a flat amount of Pace per level. */
   trackPerLevel: 0.5,
-  /** Boots multiply the result. Kept small so the Track stays the spine. */
-  bootsPerLevel: 0.045,
+  /**
+   * Boots multiply the result. Kept deliberately small.
+   *
+   * At 0.045 they were a cheap parallel route to the Pace gates -- eight
+   * levels bought a 36% speed increase for a fraction of what the equivalent
+   * Track levels cost, and the simulation showed players reaching Mirrormere
+   * through Boots rather than through the Track. That breaks design law #2:
+   * one stat is the spine, and it should have one main sink.
+   */
+  bootsPerLevel: 0.028,
   /** Hard ceiling so animation and physics never fall apart. */
   cap: 22,
 } as const;

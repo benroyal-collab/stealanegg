@@ -28,6 +28,8 @@ export interface TestSample {
 export interface TestHook {
   readonly enabled: true;
   sample: () => TestSample | null;
+  /** Frame counter, so a screenshot can wait for the scene to have settled. */
+  frames: () => number;
   /** Every sample since the page loaded, for post-hoc NaN/tunnelling checks. */
   history: () => readonly TestSample[];
   /** Drive movement without a real keyboard. */
@@ -76,6 +78,7 @@ export function installTestHook(getPhase: () => string): void {
   const hook: TestHook = {
     enabled: true,
     sample: () => latest,
+    frames: () => frame,
     history: () => history,
     setVirtualInput: (patch) => Object.assign(virtualInput, patch),
     ready: () => readyFlag,
