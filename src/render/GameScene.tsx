@@ -9,6 +9,7 @@ import { Physics } from '@react-three/rapier';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { ACESFilmicToneMapping, SRGBColorSpace, type Mesh } from 'three';
+import type { Rarity } from '../sim/types';
 import { BIOME_DEFS } from '../data/biomes';
 import { InputManager } from '../systems/input';
 import { useGame } from '../state/store';
@@ -21,15 +22,20 @@ import { PostChain } from './post/PostChain';
 import { resolveQuality, QUALITY_PRESETS, type QualityLevel } from './quality';
 import { markReady, recordSample, testHookEnabled, virtualInput } from '../systems/testHook';
 import { perfMonitor } from '../systems/perf';
+import { BiomeRuntime, type Prompt } from './BiomeRuntime';
+import { carriedPace } from '../sim/economy';
 
 export function GameScene(): React.ReactElement {
   const settings = useGame((s) => s.save.settings);
   const pace = useGame((s) => s.save.pace);
   const biomeId = useGame((s) => s.save.currentBiome);
   const phase = useGame((s) => s.phase);
+  const menu = useGame((s) => s.activeMenu);
 
   const [sunMesh, setSunMesh] = useState<Mesh | null>(null);
   const [autoLevel, setAutoLevel] = useState<QualityLevel | null>(null);
+  const [carriedRarity, setCarriedRarity] = useState<Rarity | null>(null);
+  const setPrompt = useGame((s) => s.setPrompt);
 
   const quality = useMemo(() => {
     const base = resolveQuality(settings.quality);
@@ -80,6 +86,13 @@ export function GameScene(): React.ReactElement {
     setAutoLevel(level);
   }, []);
 
+  const handlePrompt = useCallback(
+    (prompt: Prompt | null) => {
+      setPrompt(prompt);
+    },
+    [setPrompt],
+  );
+
   // Spawn on the flat apron at the middle of the map, which the terrain
   // generator guarantees is level ground.
   const spawn = useMemo<readonly [number, number, number]>(
@@ -104,6 +117,7 @@ export function GameScene(): React.ReactElement {
         maxDpr={quality.maxDpr}
       />
       <VirtualInputBridge input={input} />
+      <SystemKeys input={input} />
       <PerfSampler
         adaptive={settings.quality === 'auto'}
         level={quality.level}
@@ -123,7 +137,15 @@ export function GameScene(): React.ReactElement {
           input={input}
           spawn={spawn}
           waterLevel={biome.terrain.waterLevel}
-          pace={pace}
+          // The carry penalty is the risk/reward dial: a rarer egg is a
+          // heavier egg, and the escape is correspondingly harder.
+          pace={carriedPace(pace, carriedRarity)}
+        />
+        <BiomeRuntime
+          biome={biomeId}
+          field={field}
+          onPrompt={handlePrompt}
+          onCarryChange={setCarriedRarity}
         />
       </Physics>
 
@@ -134,7 +156,9 @@ export function GameScene(): React.ReactElement {
         lighting={biome.lighting}
         reducedMotion={settings.reducedMotion}
         sunMesh={sunMesh}
-        depthOfField={phase === 'paused' || phase === 'photo'}
+        // Depth of field never runs during play. In a stealth game it costs
+        // exactly the legibility the whole thing depends on.
+        depthOfField={phase === 'paused' || phase === 'photo' || menu !== 'none'}
         heatHaze={biomeId === 'dunes'}
         topSpeed={pace}
       />
@@ -142,6 +166,31 @@ export function GameScene(): React.ReactElement {
       <SampleRecorder />
     </Suspense>
   );
+}
+
+/**
+ * System keys: pause, photo mode, the perf overlay.
+ *
+ * Read from the same input manager as everything else, so they honour
+ * remapping. Pausing genuinely pauses physics -- a child who steps away
+ * mid-chase should not come back to a tumble.
+ */
+function SystemKeys({ input }: { input: InputManager }): null {
+  useFrame(() => {
+    const state = useGame.getState();
+    const frame = input.peek();
+
+    if (frame.menuPressed) {
+      if (state.activeMenu !== 'none') state.setMenu('none');
+      else if (state.phase === 'photo') state.setPhase('playing');
+      else state.setPhase(state.phase === 'paused' ? 'playing' : 'paused');
+    }
+    if (frame.photoPressed) {
+      state.setPhase(state.phase === 'photo' ? 'playing' : 'photo');
+    }
+    if (frame.perfPressed) state.togglePerfOverlay();
+  });
+  return null;
 }
 
 /** Applies the e2e virtual stick, when the test hook is enabled. */

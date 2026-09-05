@@ -164,6 +164,21 @@ export class InputManager {
     return this.device;
   }
 
+  /**
+   * Take just the system-level edges (menu, photo, perf) without disturbing
+   * the movement frame.
+   *
+   * The player controller owns `consume()`; if the system-key handler called
+   * it too, one of them would swallow the other's jump press.
+   */
+  peek(): Pick<FrameInput, 'menuPressed' | 'photoPressed' | 'perfPressed'> {
+    return {
+      menuPressed: this.takeLatch('menu'),
+      photoPressed: this.takeLatch('photo'),
+      perfPressed: this.takeLatch('perf'),
+    };
+  }
+
   /** Read and clear the frame's input. */
   consume(): FrameInput {
     const gp = readGamepad();
@@ -210,9 +225,10 @@ export class InputManager {
       jumpPressed: this.takeLatch('jump') || (gp?.jumpPressed ?? false),
       interactPressed: this.takeLatch('interact') || (gp?.interactPressed ?? false),
       toolPressed: this.takeLatch('tool') || (gp?.toolPressed ?? false),
-      photoPressed: this.takeLatch('photo'),
-      menuPressed: this.takeLatch('menu') || (gp?.menuPressed ?? false),
-      perfPressed: this.takeLatch('perf'),
+      // System keys are claimed by peek(), not here.
+      photoPressed: false,
+      menuPressed: gp?.menuPressed ?? false,
+      perfPressed: false,
       device: this.device,
     };
     return input;

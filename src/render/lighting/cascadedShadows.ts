@@ -105,7 +105,15 @@ const CSM_DIR_LIGHT_BLOCK = `#if ( NUM_DIR_LIGHTS > 0 ) && defined( RE_Direct )
 	// kind of bug that hides behind a quality preset. three's own code follows
 	// this convention for the same reason: see the DirectionalLight
 	// declaration above.
-	float csmDepth = - vViewPosition.z;
+	// Linear view depth, positive in front of the camera.
+	//
+	// three sets vViewPosition = -mvPosition.xyz, so for a fragment ten metres
+	// ahead mvPosition.z is -10 and vViewPosition.z is +10. Negating it here
+	// (the obvious-looking thing to write) makes every depth negative, no
+	// cascade ever claims a fragment, and the sun silently stops contributing
+	// at every quality level -- which reads as "flat ambient lighting" rather
+	// than as a bug.
+	float csmDepth = vViewPosition.z;
 	float csmOwns;
 	vec2 csmRange;
 	#pragma unroll_loop_start

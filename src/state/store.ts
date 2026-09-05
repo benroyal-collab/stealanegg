@@ -65,6 +65,8 @@ interface GameStore {
   activeMenu: 'none' | 'settings' | 'parents' | 'guide' | 'shop' | 'about';
   /** Non-null while a "you found something" card is on screen. */
   reveal: EggRoll | null;
+  /** What pressing Grab would do right now, or null. Written by the runtime. */
+  prompt: { kind: string; label: string; icon: string } | null;
 
   // --- lifecycle
   load: () => void;
@@ -100,6 +102,7 @@ interface GameStore {
   dismissBreakPrompt: () => void;
   clearOfflinePayout: () => void;
   setReveal: (roll: EggRoll | null) => void;
+  setPrompt: (prompt: { kind: string; label: string; icon: string } | null) => void;
   togglePerfOverlay: () => void;
 }
 
@@ -135,6 +138,7 @@ export const useGame = create<GameStore>((set, get) => ({
   perfOverlay: false,
   activeMenu: 'none',
   reveal: null,
+  prompt: null,
 
   load: () => {
     const now = Date.now();
@@ -409,6 +413,7 @@ export const useGame = create<GameStore>((set, get) => ({
   dismissBreakPrompt: () => set({ showBreakPrompt: false }),
   clearOfflinePayout: () => set({ offlinePayout: null }),
   setReveal: (reveal) => set({ reveal }),
+  setPrompt: (prompt) => set({ prompt }),
   togglePerfOverlay: () => set((s) => ({ perfOverlay: !s.perfOverlay })),
 }));
 

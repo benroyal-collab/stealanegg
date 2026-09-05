@@ -12,19 +12,24 @@
  */
 
 import { useFrame } from '@react-three/fiber';
-import { useEffect, useMemo, useRef } from 'react';
+import { forwardRef, useEffect, useMemo, useRef } from 'react';
 import { DoubleSide, MathUtils, type Group, type Mesh } from 'three';
 import type { CreatureBody, GuardianState } from '../../sim/types';
+import type { GuardianInstance } from '../../systems/loop';
 import { buildCreature, disposeCreature } from './creatureMesh';
 
 export interface GuardianEntityProps {
+  /**
+   * The live runtime object, read inside this component's own frame loop.
+   *
+   * Passing position and state as props would pin the guardian to whatever
+   * rate the parent re-renders at -- ten hertz, in practice, which looks
+   * like a stop-motion animation. Reading the mutable instance per frame
+   * gives smooth movement for one prop.
+   */
+  instance: GuardianInstance;
   body: CreatureBody;
   scale: number;
-  state: GuardianState;
-  /** 0..1, how sure it is that something is out there. */
-  alertness: number;
-  position: [number, number, number];
-  facing: number;
   visionConeDegrees: number;
   visionRange: number;
   /** Turns the vision cone off for players who find it cluttered. */
@@ -48,12 +53,9 @@ const STATE_ICON: Record<GuardianState, string> = {
 };
 
 export function GuardianEntity({
+  instance,
   body,
   scale,
-  state,
-  alertness,
-  position,
-  facing,
   visionConeDegrees,
   visionRange,
   showVisionCone,
@@ -61,6 +63,7 @@ export function GuardianEntity({
 }: GuardianEntityProps): React.ReactElement {
   const root = useRef<Group>(null);
   const cone = useRef<Mesh>(null);
+  const icon = useRef<Group>(null);
   const bob = useRef(0);
 
   const parts = useMemo(() => buildCreature(body, scale), [body, scale]);
@@ -72,9 +75,10 @@ export function GuardianEntity({
     const g = root.current;
     if (g === null) return;
     const dt = Math.min(rawDelta, 1 / 20);
+    const state = instance.runtime.state;
 
-    g.position.set(position[0], position[1], position[2]);
-    g.rotation.y = MathUtils.damp(g.rotation.y, facing, 8, dt);
+    g.position.set(instance.position.x, instance.groundY, instance.position.z);
+    g.rotation.y = MathUtils.damp(g.rotation.y, instance.facing, 8, dt);
 
     const moving = state === 'chase' || state === 'investigate' || state === 'patrol';
     bob.current += dt * (state === 'chase' ? 9 : state === 'drowsy' ? 1.2 : 4);
@@ -97,6 +101,18 @@ export function GuardianEntity({
 
     if (cone.current !== null) {
       cone.current.visible = showVisionCone && state !== 'drowsy';
+      const material = cone.current.material as { opacity?: number };
+      if (material.opacity !== undefined) {
+        material.opacity = 0.1 + instance.alertness * 0.22;
+      }
+    }
+
+    // Swap the thought bubble as the state changes. Shape, never colour.
+    if (icon.current !== null) {
+      const wanted = STATE_ICON[state];
+      for (const child of icon.current.children) {
+        child.visible = child.name === wanted;
+      }
     }
   });
 
@@ -133,14 +149,20 @@ export function GuardianEntity({
         <meshBasicMaterial
           color={colourblindSafe}
           transparent
-          opacity={0.1 + alertness * 0.22}
+          // Updated per frame from the runtime; this is only the initial value.
+          opacity={0.1}
           depthWrite={false}
           side={DoubleSide}
           toneMapped={false}
         />
       </mesh>
 
-      <StateIcon icon={STATE_ICON[state]} height={scale * 1.5} alertness={alertness} />
+      {/*
+        Every icon is mounted and hidden rather than swapped, so changing
+        state costs a visibility flag instead of a React reconcile -- this
+        component never re-renders after mount.
+      */}
+      <StateIcons ref={icon} height={scale * 1.5} instance={instance} />
       {/* coneRadius is derived for callers that want to lay out a HUD blip. */}
       <group visible={false} userData={{ coneRadius }} />
     </group>
@@ -148,38 +170,31 @@ export function GuardianEntity({
 }
 
 /**
- * The thought bubble above a Guardian's head.
+ * The thought bubbles above a Guardian's head.
  *
  * Shape, not colour: a question mark for "did I hear something", an
  * exclamation for "there you are", Zs for asleep. Readable at a glance and
- * completely colourblind-safe.
+ * completely colourblind-safe. All of them are mounted at once and toggled by
+ * visibility, so a state change never triggers a React render.
  */
-function StateIcon({
-  icon,
-  height,
-  alertness,
-}: {
-  icon: string;
-  height: number;
-  alertness: number;
-}): React.ReactElement | null {
-  const group = useRef<Group>(null);
+const StateIcons = forwardRef<Group, { height: number; instance: GuardianInstance }>(
+  function StateIcons({ height, instance }, ref): React.ReactElement {
+    const group = useRef<Group>(null);
 
-  useFrame((state) => {
-    const g = group.current;
-    if (g === null) return;
-    // Always face the camera.
-    g.quaternion.copy(state.camera.quaternion);
-    const pop = icon === 'exclaim' ? 1 + Math.sin(state.clock.elapsedTime * 6) * 0.08 : 1;
-    g.scale.setScalar(pop * (0.6 + alertness * 0.5));
-  });
+    useFrame((state) => {
+      const g = group.current;
+      if (g === null) return;
+      // Always face the camera.
+      g.quaternion.copy(state.camera.quaternion);
+      const urgent = instance.runtime.state === 'chase';
+      // 3Hz maximum, everywhere in this game. This is 1Hz.
+      const pop = urgent ? 1 + Math.sin(state.clock.elapsedTime * 6) * 0.08 : 1;
+      g.scale.setScalar(pop * (0.6 + instance.alertness * 0.5));
+    });
 
-  if (icon === 'dots') return null;
-
-  return (
-    <group ref={group} position={[0, height, 0]}>
-      {icon === 'exclaim' ? (
-        <>
+    return (
+      <group ref={mergeRefs(group, ref)} position={[0, height, 0]}>
+        <group name="exclaim" visible={false}>
           <mesh position={[0, 0.09, 0]}>
             <boxGeometry args={[0.07, 0.22, 0.02]} />
             <meshBasicMaterial color="#ffd05a" toneMapped={false} />
@@ -188,11 +203,9 @@ function StateIcon({
             <boxGeometry args={[0.07, 0.07, 0.02]} />
             <meshBasicMaterial color="#ffd05a" toneMapped={false} />
           </mesh>
-        </>
-      ) : null}
+        </group>
 
-      {icon === 'question' ? (
-        <>
+        <group name="question" visible={false}>
           <mesh position={[0, 0.08, 0]} rotation={[0, 0, 0.3]}>
             <torusGeometry args={[0.09, 0.028, 6, 12, Math.PI * 1.3]} />
             <meshBasicMaterial color="#ffe9a8" toneMapped={false} />
@@ -201,26 +214,38 @@ function StateIcon({
             <boxGeometry args={[0.06, 0.06, 0.02]} />
             <meshBasicMaterial color="#ffe9a8" toneMapped={false} />
           </mesh>
-        </>
-      ) : null}
+        </group>
 
-      {icon === 'zzz' ? (
-        <>
+        <group name="zzz" visible={false}>
           {[0, 1, 2].map((i) => (
             <mesh key={i} position={[i * 0.07 - 0.07, i * 0.07, 0]} scale={1 - i * 0.2}>
               <boxGeometry args={[0.09, 0.02, 0.02]} />
               <meshBasicMaterial color="#bcd6ea" toneMapped={false} />
             </mesh>
           ))}
-        </>
-      ) : null}
+        </group>
 
-      {icon === 'sigh' ? (
-        <mesh>
-          <boxGeometry args={[0.16, 0.03, 0.02]} />
-          <meshBasicMaterial color="#cfcfc4" toneMapped={false} />
-        </mesh>
-      ) : null}
-    </group>
-  );
+        <group name="sigh" visible={false}>
+          <mesh>
+            <boxGeometry args={[0.16, 0.03, 0.02]} />
+            <meshBasicMaterial color="#cfcfc4" toneMapped={false} />
+          </mesh>
+        </group>
+
+        <group name="dots" visible={false} />
+      </group>
+    );
+  },
+);
+
+/** Point two refs at the same object. */
+function mergeRefs<T>(
+  local: React.RefObject<T | null>,
+  forwarded: React.ForwardedRef<T>,
+): (value: T | null) => void {
+  return (value) => {
+    local.current = value;
+    if (typeof forwarded === 'function') forwarded(value);
+    else if (forwarded !== null) forwarded.current = value;
+  };
 }

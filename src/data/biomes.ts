@@ -121,11 +121,14 @@ export const BIOME_DEFS: Record<BiomeId, BiomeDef> = {
       sunElevation: 15,
       sunAzimuth: 108,
       sunColour: '#ffd2a0',
-      sunIntensity: 4.6,
+      sunIntensity: 6.2,
       skyTint: '#8fb4cc',
       horizonTint: '#f3cfa4',
       groundTint: '#66714c',
-      ambientIntensity: 0.95,
+      // Ambient buys shape in the shadows; too much of it and the sun stops
+      // reading at all. 0.45 leaves shadows blue and legible without going
+      // black, which is what dawn under a canopy actually looks like.
+      ambientIntensity: 0.45,
       // Fog is matched to the horizon tint, not to a neutral grey. A mismatch
       // draws a hard band where the terrain's fade meets the sky dome.
       fogColour: '#e2d3bc',
@@ -249,11 +252,13 @@ export const BIOME_DEFS: Record<BiomeId, BiomeDef> = {
       sunElevation: 21,
       sunAzimuth: 250,
       sunColour: '#dbe8f5',
-      sunIntensity: 3.6,
+      sunIntensity: 4.4,
       skyTint: '#9cb8cc',
       horizonTint: '#e4edf1',
       groundTint: '#6b7a78',
-      ambientIntensity: 1.25,
+      // Higher than the Glade on purpose: mist scatters light in from every
+      // direction, so Mirrormere genuinely is a flatter-lit place.
+      ambientIntensity: 0.85,
       // Denser than the Glade on purpose -- the mist is the biome -- but well
       // short of the soup that swallowed everything past 40 metres.
       fogColour: '#dfe9ed',
@@ -366,11 +371,13 @@ export const BIOME_DEFS: Record<BiomeId, BiomeDef> = {
       sunElevation: 28,
       sunAzimuth: 300,
       sunColour: '#ffd196',
-      sunIntensity: 5.4,
+      sunIntensity: 7.4,
       skyTint: '#a6bfe0',
       horizonTint: '#f8d8a8',
       groundTint: '#a98a5e',
-      ambientIntensity: 1.05,
+      // Hard desert light: a strong key and a bright sand bounce, but very
+      // little sky fill. This is what gives the dunes their long shadows.
+      ambientIntensity: 0.55,
       // Clear desert air. What little haze there is comes from the heat-shimmer
       // pass, not from fog.
       fogColour: '#efdcb8',
