@@ -55,7 +55,16 @@ for (const preset of ['low', 'medium', 'high', 'ultra'] as const) {
     await stopMoving(page);
     await settle(page, 10);
 
-    const buffer = await page.screenshot({ path: `${SHOTS}/glade-${preset}.png` });
+    /*
+     * Its own timeout. The suite sets a thirty-second action timeout so a
+     * locator for a missing element fails fast, but a single 1080p frame at
+     * Ultra takes longer than that to rasterise in software -- this is the one
+     * place where a slow call is the expected behaviour rather than a hang.
+     */
+    const buffer = await page.screenshot({
+      path: `${SHOTS}/glade-${preset}.png`,
+      timeout: 300_000,
+    });
     const s = await sample(page);
     // eslint-disable-next-line no-console
     console.log(
@@ -79,7 +88,10 @@ for (const biome of ['glade', 'mirrormere', 'dunes'] as const) {
     await stopMoving(page);
     await settle(page, 10);
 
-    const buffer = await page.screenshot({ path: `${SHOTS}/biome-${biome}.png` });
+    const buffer = await page.screenshot({
+      path: `${SHOTS}/biome-${biome}.png`,
+      timeout: 300_000,
+    });
     expect(buffer.length, 'the frame looks empty').toBeGreaterThan(60_000);
     expect(errors, `console errors in ${biome}: ${errors.join(' | ')}`).toEqual([]);
   });

@@ -264,6 +264,95 @@ This is the failure mode I most wanted to avoid on this project — a green test
 measuring something the game does not do — and it took an end-to-end test
 walking the actual world to catch it. Worth the cost of writing that test.
 
+## Running the gates against the real build
+
+Every one of these was found in the same afternoon, by the same act: making
+the end-to-end suite build the code it was about to test, and then actually
+running all of it rather than the two specs that were quick.
+
+### The store's clock was never wound
+
+`tick` in `state/store.ts` owns the incubator countdown, accrued play time,
+passive donations from placed creatures, caption expiry and the forty-five
+minute break reminder. It was defined, exported through the store's type, and
+called by nothing at all. Five features, all inert, none of them failing
+loudly — an incubator that never finishes just looks like an incubator you
+have not waited long enough for.
+
+A `StoreClock` in the render tree drives it now, with the delta clamped so a
+backgrounded tab cannot hand the incubator a minute of progress. The loop gate
+asserts that the number on screen actually moves, which is the assertion that
+was missing.
+
+### Nothing stood between the spawn and the first nest except everything
+
+The incubator sat at x=0, z=−1.5. Its own comment explained that it was placed
+there "so a child carrying their first egg home walks straight into it". They
+did — on the way _out_, at z=−0.55, where its collider stopped them dead.
+
+Moving it aside uncovered the next wall: a tree on the axis at z=−5.1. The
+foliage exclusion was a single circle around the sanctuary, and the route to
+nest zero ran straight out of it into the treeline.
+
+So the rule written into `CLAUDE.md` after the last round of this — nest zero
+sits eighteen metres directly ahead of the spawn — was true and still useless,
+because nothing guaranteed a walkable lane to get there. There is one now, the
+distance and the corridor width both live in `balance.ts` next to the pacing
+model that measures them, and a unit test asserts that no station stands in
+the lane. The next person to add a hut to the sanctuary cannot quietly close
+the only route out.
+
+### The gates were measuring the rasteriser
+
+CI renders this scene at well under one frame per second at 1080p, and the
+movement solver clamps its timestep to 1/20s. So `waitForTimeout(2000)` bought
+two frames — a tenth of a second of simulated movement — and every assertion
+downstream was reading a player who had barely started walking. "Sprinting
+reaches full Pace" was failing with a speed of exactly zero.
+
+The helpers count frames now, and a duration keeps its plain reading ("sprint
+for two seconds") by being honoured in frames rather than milliseconds. The
+gameplay specs also dropped to 640×360, because they are about the simulation
+and not the picture; the screenshot gate is where the resolution matters and
+it still runs at 1080p.
+
+### Three ways to write a test that cannot fail usefully
+
+Worth naming, because they were all in this suite at once:
+
+1. **A locator read with no timeout.** `textContent()` waits for the element,
+   and Playwright sets no default action timeout, so polling a prompt that is
+   not up yet blocks until the test's entire budget is gone and then reports
+   "target page closed". Twenty-five minutes to learn "not there yet".
+2. **A search step wider than the thing it is searching for.** The grab prompt
+   lives inside a 2.6 metre radius. A leg of eighteen metres sweeps past it
+   forever, and the log looks like a player who is stuck.
+3. **A write the app overwrites.** Three places wrote a save and reloaded, and
+   the app's own `pagehide` handler — there so a child who closes the tab keeps
+   their sanctuary — wrote the outgoing page's copy over the top each time. The
+   save round-trip test was testing a default save.
+
+### What the screenshots said this time
+
+Ultra was the milkier, flatter image than High — the wrong way round for the
+top preset. God rays screen-blended with an unclamped maximum, and the sun is
+behind the camera most of the time at dawn (which is exactly when you want the
+shafts), so with no visible source to radiate from the effect laid a flat veil
+over the frame. Clamped well under one, it now does what it is for.
+
+With that fixed and the AO pass back, the preset ladder reads correctly: Low is
+clean and flat, High has raking trunk shadows and contact occlusion, Ultra adds
+a denser understorey and a third shadow cascade. Dawn light through birch does
+now look like something.
+
+The ranger himself is the weakest thing on screen. Closing in on him shows a
+hat, a coat capsule, a satchel and two legs — competent, readable, and plainly
+a placeholder next to the environment around him. His trousers were also close
+enough in value to his hands that in full sun the lower body read as one pale
+column; darker cloth and a wider stance fixed that. A real character pass is
+the highest-value art work left, and it is in the roadmap rather than pretended
+about here.
+
 ## Performance — measuring the budget properly
 
 ### Reading the counters at all

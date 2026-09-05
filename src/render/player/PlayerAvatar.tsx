@@ -19,7 +19,10 @@ import { playerRef } from './playerRuntime';
 
 const SKIN = '#c9a183';
 const COAT = '#4f6b52';
-const TROUSER = '#5a5346';
+// Dark enough to stay a separate shape from the skin under a low sun. At
+// #5a5346 the legs washed out to the same value as the hands in dawn light and
+// the whole lower body read as one pale column.
+const TROUSER = '#3f3a30';
 const PACK = '#8a6a44';
 
 export function PlayerAvatar(): React.ReactElement {
@@ -114,23 +117,23 @@ export function PlayerAvatar(): React.ReactElement {
     <group ref={root}>
       <group ref={hips} position={[0, 0.72, 0]}>
         {/* Legs */}
-        <group ref={legL} position={[-0.11, 0, 0]}>
+        <group ref={legL} position={[-0.135, 0, 0]}>
           <mesh position={[0, -0.3, 0]} castShadow>
             <capsuleGeometry args={[0.075, 0.44, 4, 10]} />
             <meshStandardMaterial color={TROUSER} roughness={0.85} />
           </mesh>
           <mesh position={[0, -0.63, 0.04]} castShadow>
-            <boxGeometry args={[0.13, 0.09, 0.24]} />
+            <boxGeometry args={[0.15, 0.1, 0.26]} />
             <meshStandardMaterial color="#3a3128" roughness={0.7} />
           </mesh>
         </group>
-        <group ref={legR} position={[0.11, 0, 0]}>
+        <group ref={legR} position={[0.135, 0, 0]}>
           <mesh position={[0, -0.3, 0]} castShadow>
             <capsuleGeometry args={[0.075, 0.44, 4, 10]} />
             <meshStandardMaterial color={TROUSER} roughness={0.85} />
           </mesh>
           <mesh position={[0, -0.63, 0.04]} castShadow>
-            <boxGeometry args={[0.13, 0.09, 0.24]} />
+            <boxGeometry args={[0.15, 0.1, 0.26]} />
             <meshStandardMaterial color="#3a3128" roughness={0.7} />
           </mesh>
         </group>

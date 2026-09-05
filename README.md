@@ -96,11 +96,17 @@ npm run build      # typecheck, then production build to dist/
 npm run preview    # serve the production build
 ```
 
-| Command        | What it checks                                                                  |
-| -------------- | ------------------------------------------------------------------------------- |
-| `npm test`     | Vitest: movement feel, guardian FSM, economy, pacing, save schema, cue registry |
-| `npm run lint` | ESLint + Prettier                                                               |
-| `npm run e2e`  | Playwright: smoke, movement, screenshots, cold start, network isolation         |
+| Command             | What it checks                                                                  |
+| ------------------- | ------------------------------------------------------------------------------- |
+| `npm test`          | Vitest: movement feel, guardian FSM, economy, pacing, save schema, cue registry |
+| `npm run typecheck` | `tsc -b` across every project in the solution                                   |
+| `npm run lint`      | ESLint + Prettier                                                               |
+| `npm run check`     | All three of the above, in that order                                           |
+| `npm run e2e`       | Playwright: smoke, movement, screenshots, cold start, loop, network, budget     |
+
+`npm run e2e` builds `dist/` as part of starting its server and never reuses a
+running one, so it always measures the code in the working tree. It renders
+through a software rasteriser, so the full suite takes about forty minutes.
 
 ---
 
