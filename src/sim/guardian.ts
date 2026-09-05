@@ -167,7 +167,7 @@ export function stepGuardian(rt: GuardianRuntime, input: GuardianStepInput): Gua
     case 'giveUp': {
       // A short, readable "hmph" beat before it turns around.
       if (perception.sees) setState(rt, 'chase');
-      else if (rt.timeInState >= 1.0) setState(rt, 'cooldown');
+      else if (rt.timeInState >= GUARDIAN.giveUpBeatSeconds) setState(rt, 'cooldown');
       break;
     }
 

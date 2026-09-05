@@ -41,10 +41,20 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1920, height: 1080 } },
     },
   ],
+  /*
+   * Build every time, and never reuse a server.
+   *
+   * `preview` serves `dist/`, so with `reuseExistingServer` a run would
+   * happily measure whatever was built hours ago. That is how three rounds of
+   * draw-call optimisation got measured against a build that contained none
+   * of them: the numbers were identical each time, which read as "the change
+   * did nothing" rather than "the change is not in there". A three-second
+   * build is cheap next to a gate that lies.
+   */
   webServer: {
-    command: `npm run preview -- --port ${PORT} --strictPort`,
+    command: `npm run build && npm run preview -- --port ${PORT} --strictPort`,
     url: `http://127.0.0.1:${PORT}`,
-    reuseExistingServer: true,
-    timeout: 120_000,
+    reuseExistingServer: false,
+    timeout: 180_000,
   },
 });

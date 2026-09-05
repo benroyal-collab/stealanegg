@@ -181,14 +181,25 @@ what npm actually resolved on install day.
 
 Target: locked 60fps at 1080p on integrated graphics.
 
-| Budget            | Limit           |
-| ----------------- | --------------- |
-| CPU frame         | ≤ 6ms           |
-| GPU frame         | ≤ 12ms at High  |
-| Draw calls        | ≤ 450           |
-| Triangles         | ≤ 1.2M          |
-| Initial JS bundle | ≤ 250KB gzipped |
+| Budget            | Limit           | Measured at High | Measured at Low |
+| ----------------- | --------------- | ---------------- | --------------- |
+| Draw calls        | ≤ 450           | **258**          | 178             |
+| Triangles         | ≤ 1.2M          | **670k**         | 279k            |
+| Initial JS bundle | ≤ 250KB gzipped | **85KB**         | 85KB            |
+| CPU frame         | ≤ 6ms           | not measured     | not measured    |
+| GPU frame         | ≤ 12ms          | not measured     | not measured    |
 
-The initial payload is **85KB gzipped** — the title screen loads alone and the
-3D runtime arrives behind the Play button. Press `F3` in game for the live
+The initial payload is 85KB gzipped — the title screen loads alone and the 3D
+runtime arrives behind the Play button. Press `F3` in game for the live
 overlay; it turns amber the moment anything is over budget.
+
+Draw calls, triangles and bundle size are asserted by `tests/e2e/perf.spec.ts`
+on every run, because they are hardware-independent and they are what the
+budget is actually written in.
+
+**Frame time is not.** CI renders through a software rasteriser, so any fps
+number measured there would be measuring SwiftShader rather than the game. The
+"locked 60fps on integrated graphics" target is therefore **unverified** — the
+per-frame work is inside budget and `F3` is there to check it on real hardware,
+but nobody has yet run this on an Iris Xe and this file is not going to claim
+otherwise.

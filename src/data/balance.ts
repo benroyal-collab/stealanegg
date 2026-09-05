@@ -180,6 +180,8 @@ export const GUARDIAN = {
   alertSeconds: 1.2,
   investigateSeconds: 6,
   giveUpSeconds: 4,
+  /** The short, readable "hmph" beat before it turns around. */
+  giveUpBeatSeconds: 1,
   cooldownSeconds: 8,
   drowsySeconds: 8,
   drowsySpeedMultiplier: 0.35,

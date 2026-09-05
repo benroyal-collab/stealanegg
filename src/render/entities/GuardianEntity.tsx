@@ -99,6 +99,17 @@ export function GuardianEntity({
       leg.rotation.x = moving ? Math.sin(bob.current + offset) * 0.42 : 0;
     }
 
+    const camera = _state.camera.position;
+    const toCamera = Math.hypot(camera.x - instance.position.x, camera.z - instance.position.z);
+
+    /*
+     * Eyes, pupils, ears and belly are a dozen extra draw calls per guardian,
+     * paid again for every shadow cascade, and past twenty metres each one is
+     * smaller than the pixel it lands in. Hiding the detail group is free
+     * fidelity: nobody can see what is being removed.
+     */
+    parts.detail.visible = toCamera < DETAIL_DRAW_DISTANCE;
+
     if (cone.current !== null) {
       /*
        * Vision cones are the single most expensive thing this entity draws:
@@ -110,8 +121,6 @@ export function GuardianEntity({
        * CI from seventeen seconds a frame to something usable, and it is the
        * same saving on a real integrated GPU.
        */
-      const camera = _state.camera.position;
-      const toCamera = Math.hypot(camera.x - instance.position.x, camera.z - instance.position.z);
       cone.current.visible = showVisionCone && state !== 'drowsy' && toCamera < CONE_DRAW_DISTANCE;
       const material = cone.current.material as { opacity?: number };
       if (material.opacity !== undefined) {

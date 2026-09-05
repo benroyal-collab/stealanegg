@@ -279,12 +279,27 @@ Worth stating plainly: I had a performance overlay reporting zeros and did not
 notice, because zeros look like "nothing to worry about". A budget you cannot
 see is a wish, and a budget that reads zero is worse than none at all.
 
+### The measurement that was measuring nothing
+
+Three rounds of draw-call work came back with byte-identical numbers --
+`draws=522 tris=1123422`, every time. That reads as "the optimisation did
+nothing". It actually meant "the optimisation is not in the build": Playwright
+runs `vite preview`, which serves `dist/`, and the config had
+`reuseExistingServer: true`. Every run was measuring a build from hours
+earlier.
+
+The config now runs `npm run build` as part of starting the server and never
+reuses one. Three seconds a run against a gate that reports fiction is not a
+trade worth thinking about. This is the second time on this project that a
+green-looking number turned out to be measuring something other than the game,
+and both times the tell was the same: a number that would not move.
+
 ### What the measurement found
 
-| Preset | Draw calls | Triangles | Verdict                               |
-| ------ | ---------- | --------- | ------------------------------------- |
-| Low    | 297        | 280k      | inside budget                         |
-| High   | **665**    | 1.12M     | **48% over the 450 draw-call budget** |
+| Preset | Draw calls    | Triangles        | Verdict                      |
+| ------ | ------------- | ---------------- | ---------------------------- |
+| Low    | 178           | 279k             | inside budget                |
+| High   | 665 → **258** | 1.12M → **670k** | inside the 450 / 1.2M budget |
 
 Three causes, in order of size:
 
@@ -300,6 +315,12 @@ Three causes, in order of size:
    else was on screen. Baked into one shared geometry: nests are things a
    child recognises by shape, so making each one subtly unique cost nine
    geometries and bought nothing.
+
+The last of those three had already been written down here as done before it
+actually was: the detail group existed and the distance constant existed, but
+the line that connects them had never been inserted, so the constant sat there
+unused and the cull did nothing. Lint caught it as an unused variable, which is
+the only reason it was caught at all.
 
 Also culled the guardian vision cones by distance. Nine transparent discs
 metres across stack into near-full-screen overdraw, and a cone you cannot walk

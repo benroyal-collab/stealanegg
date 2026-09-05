@@ -8,7 +8,7 @@
  * a second.
  */
 
-import { EGG, GUARDIAN, RIVALS, TOOL_DEFS } from '../data/balance';
+import { EGG, GUARDIAN, MOVEMENT, RIVALS, TOOL_DEFS } from '../data/balance';
 import { BIOME_DEFS } from '../data/biomes';
 import {
   createGuardianRuntime,
@@ -277,7 +277,7 @@ export function stepLoop(
       runtime.tumbleRemaining <= 0
     ) {
       runtime.tumbleRemaining = GUARDIAN.tumbleSeconds;
-      runtime.hitstopRemaining = 0.08;
+      runtime.hitstopRemaining = MOVEMENT.hitstopMs / 1000;
       const dropped = runtime.carried;
       runtime.carried = null;
       events.push({ type: 'caught', ...(dropped === null ? {} : { roll: dropped }) });
