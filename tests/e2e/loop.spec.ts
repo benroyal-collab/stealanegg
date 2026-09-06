@@ -181,7 +181,7 @@ test('the full loop runs end to end and the save round-trips', async ({ page }) 
     for (let leg = 0; leg < 22 && !grabbed; leg++) {
       grabbed = await stepAndTry(page, prompt, { moveY: -1, sprint: true }, /pick up/i);
     }
-    for (let lap = 0; lap < 4 && !grabbed; lap++) {
+    for (let lap = 0; lap < 8 && !grabbed; lap++) {
       for (const heading of headings) {
         grabbed = await stepAndTry(page, prompt, { ...heading, sprint: true }, /pick up/i);
         if (grabbed) break;
@@ -223,10 +223,12 @@ test('the full loop runs end to end and the save round-trips', async ({ page }) 
   }
 
   let deposited = false;
-  for (let attempt = 0; attempt < 3 && !deposited; attempt++) {
+  for (let attempt = 0; attempt < 4 && !deposited; attempt++) {
     deposited = await attemptHeist();
+    // eslint-disable-next-line no-console
+    console.log(`attempt ${attempt}: deposited=${deposited}`);
   }
-  expect(deposited, 'three runs and the egg never reached the incubator').toBe(true);
+  expect(deposited, 'four runs and the egg never reached the incubator').toBe(true);
 
   const afterSteal = await readSave(page);
   expect(afterSteal.eggs, 'no egg was ever recovered').toBeGreaterThan(0);

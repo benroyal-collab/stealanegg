@@ -9,10 +9,15 @@
  */
 
 import { useMemo } from 'react';
-import { BoxGeometry, BufferAttribute, BufferGeometry, Matrix4, Euler, Vector3 } from 'three';
+import type { BufferGeometry } from 'three';
+import { BoxGeometry, Matrix4, Euler, Vector3 } from 'three';
+import { mergeColouredParts } from './mergeParts';
 import { hash2D } from '../materials/noise';
 import type { Nest } from '../../sim/nests';
 import { EggEntity } from './EggEntity';
+
+/** Weathered wood, carried on the merged geometry's vertex colours. */
+const TWIG = '#8a7048';
 
 /**
  * The woven ring, baked once.
@@ -41,60 +46,8 @@ function buildNestRing(): BufferGeometry {
     parts.push(twig);
   }
 
-  return mergeGeometries(parts);
-}
-
-/** Concatenate position/normal/uv geometries into one indexed buffer. */
-function mergeGeometries(parts: BufferGeometry[]): BufferGeometry {
-  let vertexCount = 0;
-  let indexCount = 0;
-  for (const part of parts) {
-    vertexCount += part.attributes.position!.count;
-    indexCount += part.index?.count ?? part.attributes.position!.count;
-  }
-
-  const positions = new Float32Array(vertexCount * 3);
-  const normals = new Float32Array(vertexCount * 3);
-  const uvs = new Float32Array(vertexCount * 2);
-  const indices = new Uint32Array(indexCount);
-
-  let vOffset = 0;
-  let iOffset = 0;
-  for (const part of parts) {
-    const pos = part.attributes.position as BufferAttribute;
-    const nrm = part.attributes.normal as BufferAttribute | undefined;
-    const uv = part.attributes.uv as BufferAttribute | undefined;
-
-    for (let i = 0; i < pos.count; i++) {
-      positions[(vOffset + i) * 3] = pos.getX(i);
-      positions[(vOffset + i) * 3 + 1] = pos.getY(i);
-      positions[(vOffset + i) * 3 + 2] = pos.getZ(i);
-      normals[(vOffset + i) * 3] = nrm?.getX(i) ?? 0;
-      normals[(vOffset + i) * 3 + 1] = nrm?.getY(i) ?? 1;
-      normals[(vOffset + i) * 3 + 2] = nrm?.getZ(i) ?? 0;
-      uvs[(vOffset + i) * 2] = uv?.getX(i) ?? 0;
-      uvs[(vOffset + i) * 2 + 1] = uv?.getY(i) ?? 0;
-    }
-
-    const index = part.index;
-    if (index === null) {
-      for (let i = 0; i < pos.count; i++) indices[iOffset + i] = vOffset + i;
-      iOffset += pos.count;
-    } else {
-      for (let i = 0; i < index.count; i++) indices[iOffset + i] = vOffset + index.getX(i);
-      iOffset += index.count;
-    }
-    vOffset += pos.count;
-    part.dispose();
-  }
-
-  const geo = new BufferGeometry();
-  geo.setAttribute('position', new BufferAttribute(positions, 3));
-  geo.setAttribute('normal', new BufferAttribute(normals, 3));
-  geo.setAttribute('uv', new BufferAttribute(uvs, 2));
-  geo.setIndex(new BufferAttribute(indices, 1));
-  geo.computeBoundingSphere();
-  return geo;
+  // One colour throughout: the twigs are all the same weathered wood.
+  return mergeColouredParts(parts.map((geometry) => ({ geometry, colour: TWIG })));
 }
 
 let sharedRing: BufferGeometry | null = null;
@@ -117,7 +70,7 @@ export function NestEntity({ nest, highlighted, contested }: NestEntityProps): R
   return (
     <group position={[nest.position.x, nest.groundY, nest.position.z]}>
       <mesh geometry={ring} castShadow receiveShadow>
-        <meshStandardMaterial color="#8a7048" roughness={0.92} />
+        <meshStandardMaterial vertexColors roughness={0.92} />
       </mesh>
 
       {/* A shallow bed of down, so an empty nest still reads as a nest. */}

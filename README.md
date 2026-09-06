@@ -21,6 +21,8 @@ never hurt you, and every egg ends up safe.
 | **Whisper Glade** — dawn woodland, the tutorial by design       | **Mirrormere** — misty lake, reeds break the Swan's sightline |
 | ![Amber Dunes](docs/shots/biome-dunes.png)                      | ![Quality presets](docs/shots/glade-low.png)                  |
 | **Amber Dunes** — open sand, almost no cover, plan around sound | **Low preset** — the same place on integrated graphics        |
+| ![The ranger](docs/shots/ranger.png)                            | ![Ultra preset](docs/shots/glade-ultra.png)                   |
+| **The ranger** — parametric, no rig and no imported mesh        | **Ultra preset** — three shadow cascades and volumetric light |
 
 `docs/shots/` also has Whisper Glade at all four quality presets, which is
 the M2 gate.
@@ -189,8 +191,8 @@ Target: locked 60fps at 1080p on integrated graphics.
 
 | Budget            | Limit           | Measured at High | Measured at Low |
 | ----------------- | --------------- | ---------------- | --------------- |
-| Draw calls        | ≤ 450           | **364**          | 178             |
-| Triangles         | ≤ 1.2M          | **916k**         | 279k            |
+| Draw calls        | ≤ 450           | **360**          | 176             |
+| Triangles         | ≤ 1.2M          | **929k**         | 286k            |
 | Initial JS bundle | ≤ 250KB gzipped | **85KB**         | 85KB            |
 | CPU frame         | ≤ 6ms           | not measured     | not measured    |
 | GPU frame         | ≤ 12ms          | not measured     | not measured    |

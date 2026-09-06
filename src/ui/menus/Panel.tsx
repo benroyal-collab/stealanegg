@@ -27,6 +27,18 @@ export function Panel({ icon, title, intro, onClose, children }: PanelProps): Re
     const onKey = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') {
         event.preventDefault();
+        /*
+         * Stop it here, or the menu reopens the instant it closes.
+         *
+         * This handler runs in the capture phase; the game's input manager
+         * listens on the same window in the bubble phase and maps Escape to
+         * "toggle pause". Without stopping propagation, one keypress is
+         * handled twice: this closes the panel immediately, and the input
+         * manager's frame callback then toggles paused straight back on. At
+         * sixty frames a second that is a flicker and looks like nothing; at
+         * the frame rate CI manages it is a menu a child cannot leave.
+         */
+        event.stopPropagation();
         onClose();
         return;
       }

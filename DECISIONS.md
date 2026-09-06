@@ -345,13 +345,100 @@ clean and flat, High has raking trunk shadows and contact occlusion, Ultra adds
 a denser understorey and a third shadow cascade. Dawn light through birch does
 now look like something.
 
-The ranger himself is the weakest thing on screen. Closing in on him shows a
-hat, a coat capsule, a satchel and two legs — competent, readable, and plainly
-a placeholder next to the environment around him. His trousers were also close
-enough in value to his hands that in full sun the lower body read as one pale
-column; darker cloth and a wider stance fixed that. A real character pass is
-the highest-value art work left, and it is in the roadmap rather than pretended
-about here.
+The ranger himself was the weakest thing on screen, and got a pass of his own
+-- see below.
+
+## The ranger
+
+He was a hat, a coat capsule and two legs: 1.45 m tall, five and a half heads,
+and twenty centimetres shorter than the physics capsule the solver was pushing
+around. The collider and the character were two different people, and the one
+you could see was proportioned like a toddler.
+
+### What actually makes a figure read as a person
+
+Not polygon count. In rough order of how much each one bought:
+
+1. **Two segments per limb.** A thigh and a shin with a knee between them is
+   the difference between walking and swinging a pendulum. Same for the elbow,
+   which also lets the arms close up as the pace rises -- a walker swings
+   almost straight arms, a sprinter holds them near ninety degrees.
+2. **Proportion.** Seven heads, hips at just over half the total height,
+   fingertips at mid-thigh. These live in `rangerProportions.ts` and are
+   asserted against the physics capsule in `tests/unit/ranger.test.ts`, because
+   "the character is the size of his own collider" is exactly the kind of thing
+   that is obvious in a bug report and invisible in a screenshot.
+3. **A neck.** A head straight on a torso is a snowman. Ten centimetres fixes
+   it.
+4. **A tapered chest.** Two stacked tapers rather than one capsule: narrow at
+   the navel, broad across the ribs.
+5. **A face.** Jaw, brows, nose, mouth, ears, eyes with an iris set into the
+   sclera. Two-millimetre details on a twenty-centimetre head, and most of what
+   stops it reading as a ball.
+6. **Breathing.** A couple of millimetres of chest scale, faster after running.
+   Invisible frame to frame and the reason a standing figure looks alive.
+
+### Which is where the draw calls went
+
+Written the obvious way -- one `<mesh>` per piece -- this came to forty-nine
+meshes and about a hundred draw calls, because every shadow caster is drawn
+again for each cascade. That took High to 446 against a budget of 450. Four
+calls of headroom is not a budget, it is a coincidence, and the next prop added
+to any biome would have broken it.
+
+So the pieces are baked, the same way the nests and the fences already were,
+with one addition: `mergeParts.ts` carries a per-vertex colour, so skin, cloth,
+leather and hair share a single material and therefore a single draw. Merging
+stops at the next thing that has to move independently, so there is one buffer
+per joint: twelve nodes for forty-nine pieces.
+
+High came back at **360** draw calls -- ninety of headroom, and four fewer than
+the stubby version cost. The better character is cheaper than the one it
+replaced, which is the outcome to aim for and not the one to assume.
+
+One thing the merge cost: the shared normal map had to go. Merged geometry
+carries each primitive's own UVs, so a tiled texture lands at a different scale
+on the hat, the shin and the nose. Harmless for roughness, where the variation
+is a whisper; on a normal map it covered the ranger in what looked like
+knitwear.
+
+### Two false readings along the way
+
+Worth writing down because both wasted time. First, the trousers looked like
+bare skin in every screenshot, so they got darkened twice -- and did not
+change. Reading the PNG's actual pixels showed the legs at (112, 83, 47)
+against ground at (129, 103, 71): correctly dark, correctly separated, and
+nothing like what the image had appeared to show. Second, before that, the
+whole lower body read as one pale column; that turned out to be a camera
+sitting exactly side-on, with the far leg hidden behind the near one and the
+caption chip covering the boots.
+
+The lesson is the same one this project keeps relearning: when a picture
+disagrees with the code, measure the picture. A forty-line PNG decoder settled
+in one run what two rounds of looking had got wrong.
+
+## The menu a child could not leave
+
+Rebuilding the ranger had nothing to do with this; running the whole suite
+afterwards is what found it.
+
+`Panel` closes itself on Escape from a capture-phase listener on the window.
+The game's input manager listens on the same window in the bubble phase and
+maps Escape to "toggle pause". Nothing stopped the event between them, so one
+keypress was handled twice: the panel closed immediately, and the input
+manager's frame callback then toggled paused straight back on.
+
+At sixty frames a second that is a sixteen-millisecond flicker, which looks
+like nothing at all and is why it survived every previous run of this gate --
+the assertion sometimes landed inside the closed frame. At the frame rate a
+software rasteriser manages, the menu closed and stayed shut for a full second
+before reopening, and the gate finally caught it.
+
+It is worth being clear about what the bug actually was, because "flaky test"
+was the tempting reading: **a child who opened the pause menu by accident could
+not get out of it with the keyboard.** That is one of the accessibility
+promises in the brief, broken in the shipped build, hidden behind a frame
+rate. One `stopPropagation` fixes it, for this panel and every other one.
 
 ## Performance — measuring the budget properly
 
@@ -388,7 +475,7 @@ and both times the tell was the same: a number that would not move.
 | Preset | Draw calls | Triangles    | Verdict                      |
 | ------ | ---------- | ------------ | ---------------------------- |
 | Low    | 178        | 279k         | inside budget                |
-| High   | 665 → 364  | 1.12M → 916k | inside the 450 / 1.2M budget |
+| High   | 665 → 360  | 1.12M → 929k | inside the 450 / 1.2M budget |
 
 (The intermediate 258 / 670k was High with the ambient-occlusion normal pass
 switched off. That turned out not to be a saving so much as a missing feature
