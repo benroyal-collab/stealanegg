@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { BIOME_DEFS } from '../../src/data/biomes';
 import { bootGame, drive, hold, history, sample, stopMoving, type TestSample } from './helpers';
 
 /**
@@ -25,7 +26,19 @@ test.setTimeout(600_000);
  */
 test.use({ viewport: { width: 640, height: 360 } });
 
-const ARENA_HALF = 40;
+/**
+ * The real edge of the world, not a guess.
+ *
+ * This was a hardcoded 40, which is barely half of Whisper Glade's actual
+ * 150-metre extent. It only ever passed because the player could not sprint
+ * far enough to reach it: once adrenaline let them hold a sprint through a
+ * chase, a perfectly ordinary run reached z = 40.06 and the suite reported
+ * that the player had "escaped through a wall". They had not -- they were
+ * thirty-five metres inside it.
+ *
+ * Derived from the biome so it cannot drift again.
+ */
+const ARENA_HALF = BIOME_DEFS.glade.terrain.size / 2;
 
 /**
  * Note on frame counts: CI renders through a software rasteriser at single
