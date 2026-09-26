@@ -440,6 +440,72 @@ not get out of it with the keyboard.** That is one of the accessibility
 promises in the brief, broken in the shipped build, hidden behind a frame
 rate. One `stopPropagation` fixes it, for this panel and every other one.
 
+## The playtest that mattered
+
+Children played it. They did not enjoy it. Verbatim: _"once I'd grabbed an egg
+I could literally walk back"_, _"being chased is too slow"_, _"graphics looked
+amateurish"_.
+
+Every gate in this repository was green at the time. That is the finding.
+
+### There was no chase
+
+Whisper Glade's guardian pursued at 4.2 m/s. The player sprints at 6.0 and
+walks at 2.6. It could not catch a walking child in the one biome every player
+actually reaches, and three other things stacked on top: a 1.2 second `alert`
+at a third of walking pace before it started moving, a give-up four seconds
+after losing sight followed by `speedFor` returning a literal zero, and a
+snatch that alerted nobody at all.
+
+The test named "every biome guardian can outrun a starting player" asserted
+`chaseSpeed > patrolSpeed`. It compared the guardian to itself. It would have
+passed at any value, and it did.
+
+### What replaced it
+
+Pursuit speed is now a fraction of the player's live Pace. An absolute number
+is either impossible at Pace 6 or irrelevant at Pace 22, and this one managed
+to be irrelevant on the first run. The guardian lunges above the player's speed
+for two seconds, then settles just below.
+
+The first attempt at the fractions was also wrong, and the arithmetic caught it
+rather than a playtest: at a 0.94 sustained fraction, a player holding sprint
+in a straight line escaped every pursuit in every biome with metres to spare.
+At 0.97 the danger band is real — caught if the guardian was within three to
+five metres when you took the egg, or within eight to ten if you lose one
+second to a tree. `tests/unit/chase.test.ts` plays that out against the real
+FSM.
+
+Two consequences had to be handled or the chase would merely have been unfair:
+
+- **Adrenaline.** Six seconds of sprint against a seven second pursuit meant
+  every escape ended with the player walking and the guardian jogging up behind
+  them — lost to a spreadsheet, not to a mistake. Stamina drains at 75% while
+  something is chasing, so a full bar buys exactly one clean escape.
+- **The egg stays on the ground.** A catch used to delete it. With a pursuit
+  that can actually catch you, that makes the whole trip a write-off, and "you
+  lose everything" is how an eight year old decides to stop playing. Now it
+  lies where it fell and going back in for it is a decision.
+
+### Amateurish, specifically
+
+Worth naming the tells rather than treating "looks cheap" as a mood:
+
+- **Every tree was the same smooth ellipsoid.** Pines went through the same
+  function as birches, so a pine was a birch with smaller spheres. A wood of
+  mathematically perfect ellipsoids reads as placeholder however well it is
+  lit, because nothing in a wood is ever that smooth. Conifers now get cones,
+  palms get fronds, and every canopy vertex is pushed along its normal by a
+  hashed amount before the normals are recomputed. It costs no vertices and no
+  draw calls.
+- **Guardians were featureless capsules.** The Mirrormere Swan filled a third
+  of the screen during a chase as one white blob. Same roughening, plus a
+  snout — one cone, and a head stops being a ball.
+
+High measured 373 draw calls against the 450 budget afterwards, and fewer
+triangles than before, because the conifers are cheaper than the sphere stacks
+they replaced.
+
 ## Performance — measuring the budget properly
 
 ### Reading the counters at all

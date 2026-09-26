@@ -21,6 +21,7 @@ import {
   type BufferGeometry,
   type Material,
 } from 'three';
+import { roughen } from '../materials/roughen';
 import type { CreatureBody } from '../../sim/types';
 
 export interface CreatureParts {
@@ -63,7 +64,17 @@ export function buildCreature(body: CreatureBody, scale = 1): CreatureParts {
   const detail = new Group();
 
   // --- body ---------------------------------------------------------------
+  /*
+   * A capsule, then broken up.
+   *
+   * A smooth capsule with a sphere stuck on the front reads as a cloud, not
+   * an animal -- the Mirrormere Swan in particular filled a third of the
+   * screen during a chase as one featureless white blob. Roughening costs no
+   * vertices and gives the light something to catch, which is most of the
+   * difference between "stylised" and "unfinished".
+   */
   const bodyGeo = new CapsuleGeometry(body.bodyRadius, body.bodyRadius * body.bodyStretch, 6, 14);
+  roughen(bodyGeo, Math.round(body.bodyRadius * 1000), 0.13);
   bodyGeo.rotateX(Math.PI / 2);
   owned.push(bodyGeo);
   const bodyMesh = new Mesh(bodyGeo, skin);
@@ -84,11 +95,27 @@ export function buildCreature(body: CreatureBody, scale = 1): CreatureParts {
   // --- head ---------------------------------------------------------------
   const headRadius = body.bodyRadius * 0.72;
   const headGeo = new SphereGeometry(headRadius, 14, 12);
+  roughen(headGeo, Math.round(headRadius * 1700), 0.1);
   owned.push(headGeo);
   const head = new Mesh(headGeo, skin);
   head.castShadow = true;
   head.position.set(0, body.bodyRadius * 0.55, body.bodyRadius * body.bodyStretch * 0.75);
   bodyMesh.add(head);
+
+  /*
+   * A snout. One cone, and the head stops being a ball.
+   *
+   * Every guardian in the game is a bird or a burrowing thing, and a face
+   * needs something that points. It also gives the chase a direction to read
+   * at a glance -- you can tell what a creature is looking at from behind.
+   */
+  const snoutGeo = new ConeGeometry(headRadius * 0.34, headRadius * 0.95, 7);
+  snoutGeo.rotateX(Math.PI / 2);
+  owned.push(snoutGeo);
+  const snout = new Mesh(snoutGeo, dark);
+  snout.castShadow = true;
+  snout.position.set(0, -headRadius * 0.12, headRadius * 0.86);
+  head.add(snout);
 
   // --- eyes ---------------------------------------------------------------
   const eyeGeo = new SphereGeometry(body.eyeSize, 10, 8);
