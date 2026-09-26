@@ -24,6 +24,8 @@ import {
   DepthOfField,
   EffectComposer,
   GodRays,
+  BrightnessContrast,
+  HueSaturation,
   Noise,
   SMAA,
   SSAO,
@@ -199,6 +201,21 @@ export function PostChain({
       ) : (
         <></>
       )}
+
+      {/*
+        The grade, last before the vignette.
+
+        ACES rolls the highlights off correctly and leaves the midtones flat,
+        so without this the frame reads as an ungraded log image -- which is
+        most of what "amateurish" means once the geometry and the lighting are
+        already fine. Contrast puts the blacks back under the trees;
+        saturation stops the palette washing out into the fog.
+
+        Both come from the biome, because the three want different amounts:
+        see `contrast` and `saturation` in biomes.ts.
+      */}
+      <BrightnessContrast brightness={0} contrast={lighting.contrast} />
+      <HueSaturation hue={0} saturation={lighting.saturation} />
 
       {quality.vignette ? <Vignette offset={0.32} darkness={0.25} eskil={false} /> : <></>}
     </EffectComposer>

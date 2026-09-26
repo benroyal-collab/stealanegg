@@ -524,6 +524,36 @@ High measured 373 draw calls against the 450 budget afterwards, and fewer
 triangles than before, because the conifers are cheaper than the sphere stacks
 they replaced.
 
+### The ground, and the grade
+
+Two more tells, both larger than they sound.
+
+**The sanctuary clearing was a solid fill.** One `circleGeometry`, one hex
+colour, no albedo map, no normal map, no roughness map. Foliage is excluded
+from the sanctuary, so it is also the largest uninterrupted surface in the
+game -- roughly two hundred square metres of flat `#b39468` sitting in the
+middle of every screenshot, right where the camera spends most of its time.
+It now uses the same procedural albedo, normal and roughness as the terrain.
+
+It also takes its colours from the biome. Painted one fixed brown it read as
+a patch dropped onto the Dunes' pale sand; trodden earth is whatever the local
+soil is, compacted, so it is now the biome's own ground colour darkened, with
+a wider soft edge.
+
+**Nothing graded the image.** The post chain had ambient occlusion, bloom,
+motion blur, antialiasing, grain, chromatic aberration and a vignette -- and
+no colour grade at all. ACES rolls the highlights off correctly and leaves the
+midtones flat, so every frame was effectively an ungraded log image. That is
+most of what "amateurish" means once the geometry and the lighting are already
+fine, and it is invisible in isolation: you only see it next to a graded
+frame.
+
+A little contrast and saturation, per biome, at the end of the chain. Whisper
+Glade takes the most (0.14 / 0.13) because a warm dawn can carry it;
+Mirrormere the least contrast (0.09) because the mist is the point and
+crushing it turns a deliberately soft biome into a postcard; the Dunes are
+already high contrast and need only 0.07.
+
 ## Performance — measuring the budget properly
 
 ### Reading the counters at all

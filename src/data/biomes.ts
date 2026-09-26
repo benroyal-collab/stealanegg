@@ -57,6 +57,21 @@ export interface BiomeLighting {
   readonly exposure: number;
   readonly volumetricStrength: number;
   readonly bloomIntensity: number;
+  /**
+   * Colour grade, applied at the end of the post chain.
+   *
+   * ACES already rolls the highlights off, which is correct and also leaves
+   * the midtones sitting flat -- the whole frame reads as a log image nobody
+   * graded, which is most of what "amateurish" means when the geometry and
+   * the lighting are fine. A little contrast puts the blacks back and a
+   * little saturation stops the palette washing out into the fog.
+   *
+   * Per biome, because the three want different things: the Glade is a warm
+   * dawn and can take a push, Mirrormere is deliberately misty and must not
+   * be crushed into a postcard, the Dunes are already high contrast.
+   */
+  readonly contrast: number;
+  readonly saturation: number;
 }
 
 export interface BiomeTerrain {
@@ -168,6 +183,8 @@ export const BIOME_DEFS: Record<BiomeId, BiomeDef> = {
       exposure: 1.0,
       volumetricStrength: 0.85,
       bloomIntensity: 0.42,
+      contrast: 0.14,
+      saturation: 0.13,
     },
     terrain: {
       size: 150,
@@ -296,6 +313,10 @@ export const BIOME_DEFS: Record<BiomeId, BiomeDef> = {
       exposure: 1.05,
       volumetricStrength: 1.15,
       bloomIntensity: 0.5,
+      // Gentler: the mist is the point here, and crushing it turns a
+      // deliberately soft biome into a postcard.
+      contrast: 0.09,
+      saturation: 0.08,
     },
     terrain: {
       size: 165,
@@ -412,6 +433,10 @@ export const BIOME_DEFS: Record<BiomeId, BiomeDef> = {
       exposure: 0.95,
       volumetricStrength: 0.3,
       bloomIntensity: 0.55,
+      // Already a high-contrast biome -- bare sand under a hard sun -- so it
+      // needs the least help of the three.
+      contrast: 0.07,
+      saturation: 0.1,
     },
     terrain: {
       size: 180,

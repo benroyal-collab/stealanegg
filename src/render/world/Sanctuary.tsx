@@ -10,8 +10,8 @@
 
 import { CuboidCollider, RigidBody } from '@react-three/rapier';
 import { useFrame } from '@react-three/fiber';
-import { useMemo, useRef } from 'react';
-import { MathUtils, type Group, type Mesh } from 'three';
+import { useEffect, useMemo, useRef } from 'react';
+import { MathUtils, MeshStandardMaterial, type Group, type Mesh } from 'three';
 import { EGG, WORLD } from '../../data/balance';
 import type { OwnedCreature } from '../../sim/types';
 import { requireSpecies } from '../../data/creatures';
@@ -20,11 +20,30 @@ import { useEggMaterial } from '../entities/EggEntity';
 import type { EggInIncubator } from '../../sim/types';
 import { CreatureInHabitat } from '../entities/CreatureInHabitat';
 import { fenceGeometry } from './fenceGeometry';
+import { groundAlbedo, microNormal, roughnessMap } from '../materials/proceduralTextures';
 
 export const SANCTUARY_RADIUS = 11;
 
+/** Multiply a hex colour's channels, for "the same earth but walked on". */
+function shade(hex: string, factor: number): string {
+  const n = Number.parseInt(hex.slice(1), 16);
+  const ch = (shift: number): number =>
+    Math.max(0, Math.min(255, Math.round(((n >> shift) & 255) * factor)));
+  return `#${((ch(16) << 16) | (ch(8) << 8) | ch(0)).toString(16).padStart(6, '0')}`;
+}
+
 export interface SanctuaryProps {
   groundY: number;
+  /**
+   * The biome's own soil colours.
+   *
+   * The clearing is trodden earth, and trodden earth is whatever the ground
+   * around it is made of, compacted. Painted one fixed brown it read as a
+   * patch dropped onto the Dunes' pale sand -- a visible seam on the largest
+   * flat surface in the game.
+   */
+  groundLow: string;
+  groundMid: string;
   incubator: EggInIncubator | null;
   creatures: readonly OwnedCreature[];
   habitatSlots: number;
@@ -74,11 +93,43 @@ export const STATIONS: readonly Station[] = [
 
 export function Sanctuary({
   groundY,
+  groundLow,
+  groundMid,
   incubator,
   creatures,
   habitatSlots,
   activeStation,
 }: SanctuaryProps): React.ReactElement {
+  /*
+   * Trodden earth, textured rather than painted.
+   *
+   * Tiled tightly (repeat 9) because this surface is walked on at close
+   * range: at the terrain's own scale a two-hundred square metre disc shows
+   * about one texel of variation and looks exactly as flat as a solid fill.
+   */
+  const clearingMaterial = useMemo(() => {
+    // Darker and a touch less saturated than the surrounding soil: the same
+    // earth, walked on.
+    const albedo = groundAlbedo(`sanctuary-${groundLow}`, shade(groundLow, 0.82), groundMid);
+    albedo.repeat.set(9, 9);
+    const rough = roughnessMap(`sanctuary-${groundLow}`, 0.94, 0.12);
+    rough.repeat.set(9, 9);
+    const normal = microNormal();
+    normal.repeat.set(9, 9);
+    const mat = new MeshStandardMaterial({
+      map: albedo,
+      normalMap: normal,
+      roughnessMap: rough,
+      roughness: 1,
+      metalness: 0,
+      dithering: true,
+    });
+    mat.normalScale.set(0.7, 0.7);
+    return mat;
+  }, [groundLow, groundMid]);
+
+  useEffect(() => () => clearingMaterial.dispose(), [clearingMaterial]);
+
   const habitatPositions = useMemo(() => {
     // A gentle arc in front of the sanctuary, so the collection is the first
     // thing you see when you come home with an egg.
@@ -96,17 +147,27 @@ export function Sanctuary({
     <group position={[0, groundY, 0]}>
       {/*
         A trodden clearing, so the ground reads as "somewhere people are".
-        Warm bare earth rather than the neutral tan it started as -- against
-        the biome's greens a neutral read as flat grey.
+
+        This was a single flat colour with no maps of any kind, and because
+        foliage is excluded from the sanctuary it is also the largest bare
+        surface in the game -- a couple of hundred square metres of unbroken
+        #b39468 sitting in the middle of every screenshot. It is the single
+        biggest reason the game read as unfinished. It now uses the same
+        procedural albedo, normal and roughness the terrain does.
       */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]} receiveShadow>
         <circleGeometry args={[SANCTUARY_RADIUS, 40]} />
-        <meshStandardMaterial color="#b39468" roughness={0.96} />
+        <primitive object={clearingMaterial} attach="material" />
       </mesh>
       {/* A soft edge, so the clearing does not end on a hard circle. */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.015, 0]} receiveShadow>
-        <ringGeometry args={[SANCTUARY_RADIUS - 0.6, SANCTUARY_RADIUS + 2.6, 40]} />
-        <meshStandardMaterial color="#93975e" roughness={0.97} transparent opacity={0.7} />
+        <ringGeometry args={[SANCTUARY_RADIUS - 1.4, SANCTUARY_RADIUS + 3.4, 44]} />
+        <meshStandardMaterial
+          color={shade(groundMid, 0.94)}
+          roughness={0.97}
+          transparent
+          opacity={0.72}
+        />
       </mesh>
 
       <Incubator
