@@ -18,6 +18,7 @@ import type { FoliageLayer } from '../../data/biomes';
 import { hash2D } from '../materials/noise';
 import { isWalkable, sampleHeight, sampleSlope, type TerrainField } from './terrain';
 import type { FoliageKind } from './foliageGeometry';
+import { isExcluded, type ExclusionZone } from './exclusion';
 
 /** Radius and half-height of the collider for each solid kind, at scale 1. */
 const SOLID: Partial<
@@ -36,7 +37,7 @@ export interface FoliageCollidersProps {
   field: TerrainField;
   seed: number;
   density: number;
-  exclusions: readonly { x: number; z: number; radius: number }[];
+  exclusions: readonly ExclusionZone[];
 }
 
 export function FoliageColliders({
@@ -82,14 +83,7 @@ export function FoliageColliders({
         if (sampleSlope(field, px, pz) > layer.maxSlope) continue;
         if (layer.kind !== 'reed' && !isWalkable(field, px, pz, layer.maxSlope)) continue;
 
-        let excluded = false;
-        for (const zone of exclusions) {
-          if (Math.hypot(px - zone.x, pz - zone.z) < zone.radius) {
-            excluded = true;
-            break;
-          }
-        }
-        if (excluded) continue;
+        if (isExcluded(layer.kind, px, pz, exclusions)) continue;
 
         const scale =
           layer.minScale + hash2D(attempt, layerSeed, 6) * (layer.maxScale - layer.minScale);

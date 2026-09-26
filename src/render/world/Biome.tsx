@@ -20,6 +20,7 @@ import { FoliageField } from './Foliage';
 import { FoliageColliders } from './FoliageColliders';
 import { Terrain } from './Terrain';
 import { Water } from './Water';
+import type { ExclusionZone } from './exclusion';
 import { generateTerrain, sampleHeight, type TerrainField } from './terrain';
 import { hashString } from '../../sim/rng';
 
@@ -30,7 +31,7 @@ export interface BiomeProps {
   onSunMesh?: (mesh: Mesh | null) => void;
   onField?: (field: TerrainField) => void;
   /** Circles kept clear of foliage: the sanctuary, nests, walkways. */
-  exclusions?: readonly { x: number; z: number; radius: number }[];
+  exclusions?: readonly ExclusionZone[];
 }
 
 export function useTerrainField(biome: BiomeId): TerrainField {

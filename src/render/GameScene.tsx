@@ -25,6 +25,7 @@ import { markReady, recordSample, testHookEnabled, virtualInput } from '../syste
 import { perfMonitor } from '../systems/perf';
 import { BiomeRuntime, type Prompt } from './BiomeRuntime';
 import { carriedPace } from '../sim/economy';
+import type { ExclusionZone } from './world/exclusion';
 
 export function GameScene(): React.ReactElement {
   const settings = useGame((s) => s.save.settings);
@@ -102,16 +103,19 @@ export function GameScene(): React.ReactElement {
   );
 
   /**
-   * Keep the sanctuary clearing free of undergrowth.
+   * Keep the sanctuary clearing free of foliage.
    *
-   * Small on purpose. At 14 metres this swallowed every plant the player
-   * could actually see from the spawn, and the foreground read as bare mud
-   * with a distant treeline -- the exact opposite of what a dawn woodland
-   * should look like.
+   * Two radii. Undergrowth is kept out of only the middle: at 14 metres
+   * that swallowed every plant the player could see from the spawn, and the
+   * foreground read as bare mud with a distant treeline. Trees and rocks are
+   * kept out of the whole clearing, though -- with only the small radius a
+   * birch grew straight up through the middle of a habitat pen, and another
+   * stood in the walkway between the stations.
    */
   const sanctuaryExclusion = useMemo(() => {
-    const circles: { x: number; z: number; radius: number }[] = [
+    const circles: ExclusionZone[] = [
       { x: 0, z: 0, radius: WORLD.sanctuaryClearRadius },
+      { x: 0, z: 0, radius: WORLD.sanctuaryRadius + 1.5, largeOnly: true },
     ];
     /*
      * A lane out to nest zero, cleared with a chain of overlapping circles.

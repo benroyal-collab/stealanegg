@@ -41,6 +41,7 @@ import {
 } from '../materials/proceduralTextures';
 import { foliageGeometry, type FoliageKind } from './foliageGeometry';
 import { isWalkable, sampleHeight, sampleSlope, type TerrainField } from './terrain';
+import { isExcluded, type ExclusionZone } from './exclusion';
 
 interface CompileShader {
   uniforms: Record<string, IUniform>;
@@ -105,7 +106,7 @@ export interface FoliageFieldProps {
   drawDistance: number;
   reducedMotion: boolean;
   /** Keeps foliage out of the sanctuary and off the nests. */
-  exclusions?: readonly { x: number; z: number; radius: number }[];
+  exclusions?: readonly ExclusionZone[];
 }
 
 export function FoliageField({
@@ -151,7 +152,7 @@ function FoliageLayerMesh({
   density: number;
   drawDistance: number;
   reducedMotion: boolean;
-  exclusions: readonly { x: number; z: number; radius: number }[];
+  exclusions: readonly ExclusionZone[];
 }): React.ReactElement | null {
   const mesh = useRef<InstancedMesh>(null);
 
@@ -279,6 +280,18 @@ function FoliageLayerMesh({
            // rather than flickering frame to frame.
            float fade = 1.0 - smoothstep(uDrawDistance - uFadeBand, uDrawDistance, vCameraDistance);
            if (fade < vDither) discard;`,
+        )
+        .replace(
+          '#include <normal_fragment_maps>',
+          `#include <normal_fragment_maps>
+           /*
+            * Bark is for trunks. A tree is one mesh with one material, so the
+            * bark normal map used to land on the canopy as well -- and its
+            * vertical grain, wrapped round a ball of leaves, drew wavy zebra
+            * stripes across every birch in the Glade. Leaves keep the
+            * geometry's own faceting, which is what reads as clumps.
+            */
+           if (uHasWood > 0.5 && vPart > 0.5) normal = nonPerturbedNormal;`,
         );
     };
     mat.customProgramCacheKey = () => `foliage-${layer.kind}-${reducedMotion ? 'still' : 'wind'}`;
@@ -344,7 +357,7 @@ function scatter(
   field: TerrainField,
   seed: number,
   density: number,
-  exclusions: readonly { x: number; z: number; radius: number }[],
+  exclusions: readonly ExclusionZone[],
 ): Placement {
   const target = Math.max(0, Math.round(layer.count * density));
   const half = field.size / 2 - 2;
@@ -380,14 +393,7 @@ function scatter(
     if (layer.kind !== 'reed' && !isWalkable(field, px, pz, layer.maxSlope)) continue;
     if (field.waterLevel !== null && layer.kind === 'reed' && h > field.waterLevel + 1.2) continue;
 
-    let excluded = false;
-    for (const zone of exclusions) {
-      if (Math.hypot(px - zone.x, pz - zone.z) < zone.radius) {
-        excluded = true;
-        break;
-      }
-    }
-    if (excluded) continue;
+    if (isExcluded(layer.kind, px, pz, exclusions)) continue;
 
     x[placed] = px;
     y[placed] = h;
