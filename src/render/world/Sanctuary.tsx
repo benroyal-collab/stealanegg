@@ -22,7 +22,8 @@ import { CreatureInHabitat } from '../entities/CreatureInHabitat';
 import { fenceGeometry } from './fenceGeometry';
 import { groundAlbedo, microNormal, roughnessMap } from '../materials/proceduralTextures';
 
-export const SANCTUARY_RADIUS = 11;
+/** The visible clearing is the safe zone the sim enforces; one number for both. */
+export const SANCTUARY_RADIUS = WORLD.sanctuaryRadius;
 
 /** Multiply a hex colour's channels, for "the same earth but walked on". */
 function shade(hex: string, factor: number): string {

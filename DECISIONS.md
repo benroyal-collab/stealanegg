@@ -600,6 +600,113 @@ player runtime each frame and writes through a ref, the same way the stamina
 ring does. Shape carries the meaning — it is an arrow, it points, and it grows
 as the danger closes — with the caption track saying so in words alongside.
 
+### Home was not safe
+
+The regenerated Mirrormere screenshot showed the ranger flat on his back in
+the middle of the sanctuary, next to the incubator, with the swan standing over
+him. The shot test never moves the player. It boots, turns the camera and waits.
+The previous version of the same shot, before any of this session's work, shows
+the same thing with the old cloud-shaped swan.
+
+Nest zero is eighteen metres out and its guardian patrols a loop 6.5 to 10
+metres wide around it, so the patrol reached eight metres from the spawn —
+inside the eleven-metre clearing. Nothing in the simulation treated the clearing
+as special. A guardian could wander in, see a child standing at the spawn, and
+knock them over before they had touched anything. The loop gate had been
+failing on the same thing: its log shows the hen catching the test's player at
+z = −9.8, inside the clearing.
+
+The clearing is now a safe zone in the sim, with its radius in
+`WORLD.sanctuaryRadius` so the render and the simulation read one number:
+
+- Patrol waypoints inside it are pushed out to the edge, and guardians are
+  clamped to a ring one body outside it.
+- A guardian perceives nothing of a player inside it.
+- A chase stops the moment the player crosses in: the guardian stands down and
+  the caption track says "The guardian has given up. You are safe." That is
+  the "made it!" beat a chase builds towards, and it now lands exactly on the
+  line a child can see on the ground.
+- No catch can happen inside it.
+
+`tests/unit/safezone.test.ts` stands a player at the spawn for a simulated
+minute in every biome, in plain sight and making noise, and asserts nobody
+comes in and nobody is caught. With the fix removed, it fails.
+
+It makes the tutorial heist gentler: seven metres from nest zero to safety
+rather than eighteen. That is the right way round. The first egg is where a
+child learns the loop, and the real chases are at the scattered nests, which
+sit at least nineteen metres from the centre.
+
+### The bottom of the screen talked over itself
+
+The objective line, the caption track and the interaction prompt were each
+positioned on their own — the objective fixed at 118 px from the bottom, the
+captions stacked upward from 64 px, the prompt in the grid row beneath — and
+nothing knew about anything else. A tumble fires three captions inside a
+second, and the in-game screenshot showed the objective sitting between two
+caption bars, the third caption lying on top of the "Grab it back" prompt, and
+the whole pile covering the ranger and the hen standing over him. The one
+line that needed reading was the one underneath.
+
+They are now one flex column in the HUD, objective above captions above
+prompt, so they stack instead of colliding. The caption track holds two lines
+rather than three: the newest two are what matter, the oldest has already been
+on screen, and a third bar on a laptop-height window reaches the middle of the
+frame where the player is. Short screens get tighter padding, never smaller
+text.
+
+## The guardians, rebuilt as animals
+
+The guardians came out of the same parametric builder as the collectable
+creatures: a capsule body, a ball head, a cone snout, ears and a tail from a
+short menu. The theory was that a guardian should read as a big cousin of the
+things you collect. In practice the Broody Hen was an orange lozenge with a
+cream dome on top and some shards sticking out of it, and because she is what
+fills the middle of the frame in every chase, she was both the most-looked-at
+thing in the game and the least legible one.
+
+A child has to know what is chasing them from the silhouette alone, over their
+shoulder, in half a second. So each guardian is now built as its own animal in
+`src/render/entities/guardianMesh.ts`, from the few shapes its real animal is
+recognised by:
+
+- **Hen:** comb, wattles, beak, a round breast and an upswept tail. The
+  silhouette is a U with a head on one arm; the old one was horizontal.
+- **Swan:** a tapered S-curved neck, a black mask with the eyes set on the
+  white above it (set on the black, they read as spectacles), and wings carried
+  high over the back.
+- **Scorpion:** pincers held forward and a segmented tail curled over the back,
+  ending in a round bulb. A real sting is the one part of a scorpion a child
+  already knows to fear, and this game does not get to borrow that. The
+  pincers are hooked and rounded, not pointed.
+
+All three frown. A cross face on something large, coming at you fast, is most
+of what "scarier" asked for, and it costs nothing against the rule that nothing
+here hurts anybody. None of them has teeth.
+
+The chase posture is per species. The hen pitches forward but keeps her face
+level and pushes her head out, so her eyes stay on you rather than on the
+floor. The swan throws its whole neck forward from the base, which is what an
+angry swan actually does. Wings open and beat on the stride, keyed off the
+14 rad/s step, so the fastest beat is 2.2 Hz and inside the 3 Hz ceiling. The
+scorpion raises and sways its pincers and curls its tail further over.
+
+They are built the ranger's way: small primitives baked into one
+vertex-coloured buffer per moving joint, one material. That makes a guardian
+six draw calls — body, head, and a pair each of legs and wings or pincers;
+the scorpion's eight legs are two alternating sets of four, which is how the
+real animal walks. The old builder was thirteen up close. The distance cull on
+small features is gone because there are no small separate features left to
+cull. `tests/unit/guardianMesh.test.ts` asserts the six-draw cap, feet on the
+ground, the state icon clearing the head, no pure black or white, and that
+every pair of guardians differs by at least fifteen per cent in height or
+length. High went from 373 draw calls to 323, and Low from 176 to 155,
+with more on screen than before.
+
+The collectable creatures still use the parametric builder. They are small,
+seen close up in the habitats, and a data-driven species list is worth more
+there than a bespoke silhouette.
+
 ## Performance — measuring the budget properly
 
 ### Reading the counters at all

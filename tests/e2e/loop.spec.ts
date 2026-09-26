@@ -213,6 +213,15 @@ test('the full loop runs end to end and the save round-trips', async ({ page }) 
       // eslint-disable-next-line no-console
       console.log(`home ${leg}: x=${state.x.toFixed(1)} z=${state.z.toFixed(1)}`);
       if (distance < 4) break;
+      /*
+       * Still on the floor? Wait until up. The "grab it back" prompt is not
+       * offered mid-tumble, so checking for it then and walking on meant the
+       * test left the egg lying where it fell and went home empty-handed.
+       */
+      if (state.stance === 'tumbling') {
+        await hold(page, 600);
+        continue;
+      }
       // Dropped it? Pick it up before carrying on, the way a player would.
       if ((await prompt.count()) > 0 && /grab it back/i.test((await prompt.textContent()) ?? '')) {
         await page.evaluate(() => window.__eggheist?.setVirtualInput({ interact: true }));

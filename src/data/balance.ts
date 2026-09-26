@@ -236,6 +236,18 @@ export const WORLD = {
   /** Radius around the sanctuary kept free of foliage. */
   sanctuaryClearRadius: 5.5,
   /**
+   * The sanctuary clearing, centred on the spawn. It is home, and home is
+   * safe: no guardian sees you, follows you or knocks you over inside it.
+   *
+   * Without this a guardian patrolling nest zero -- eighteen metres out, on
+   * a loop up to ten metres wide -- could wander into the clearing and
+   * flatten a child who was standing at the spawn and had not yet touched
+   * anything. The shot gate caught one doing exactly that.
+   */
+  sanctuaryRadius: 11,
+  /** Guardians stop this far outside the clearing's edge: about one body. */
+  guardianKeepOut: 1.2,
+  /**
    * Half-width of the cleared lane from the sanctuary out to nest zero.
    *
    * Every station collider is at most 1.1m in half-width and the player

@@ -85,6 +85,10 @@ pacing windows they produce, so the file is under test.
   `sim/session.ts`). If the world does not put a nest there, the pacing
   assertion is measuring a fiction. It is placed by hand in `BiomeRuntime`;
   the rest scatter.
+- **The sanctuary clearing is a safe zone.** `WORLD.sanctuaryRadius`, enforced
+  in `systems/loop.ts`: guardians cannot enter it, cannot see into it, and
+  call off a chase the moment the player crosses in. Anything that lets a
+  guardian reach the spawn is a bug, and `tests/unit/safezone.test.ts` says so.
 - **Cover has to break line of sight at crouch height.** Guardian vision is a
   cone from roughly chest height; anything a player can hide behind must
   actually occlude the ray, not just look like it does.

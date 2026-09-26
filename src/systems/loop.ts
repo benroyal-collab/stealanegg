@@ -8,7 +8,7 @@
  * a second.
  */
 
-import { CHASE, EGG, GUARDIAN, MOVEMENT, RIVALS, TOOL_DEFS } from '../data/balance';
+import { CHASE, EGG, GUARDIAN, MOVEMENT, RIVALS, TOOL_DEFS, WORLD } from '../data/balance';
 import { BIOME_DEFS } from '../data/biomes';
 import {
   createGuardianRuntime,
@@ -152,6 +152,29 @@ export interface LoopEvent {
  * any point in the cycle, which is what makes the stealth a readable puzzle
  * instead of a memory test.
  */
+/** The sanctuary is centred on the spawn, which is the world origin. */
+const KEEP_OUT = WORLD.sanctuaryRadius + WORLD.guardianKeepOut;
+
+/** Push a point out to the sanctuary's keep-out ring, in place. */
+function keepOutOfSanctuary(point: { x: number; z: number }): void {
+  const d = Math.hypot(point.x, point.z);
+  if (d >= KEEP_OUT) return;
+  if (d < 1e-6) {
+    point.z = -KEEP_OUT;
+    return;
+  }
+  point.x *= KEEP_OUT / d;
+  point.z *= KEEP_OUT / d;
+}
+
+/** True when the player is standing inside the sanctuary clearing. */
+export function isHome(position: Vec2): boolean {
+  return Math.hypot(position.x, position.z) < WORLD.sanctuaryRadius;
+}
+
+/** What a guardian perceives of a player who is home: nothing. */
+const UNSEEN: PerceptionResult = { sees: false, hears: false, strength: 0 };
+
 export function createGuardians(
   nests: readonly Nest[],
   field: Parameters<typeof patrolRoute>[0],
@@ -159,7 +182,16 @@ export function createGuardians(
   rng: Rng,
 ): GuardianInstance[] {
   return nests.map((nest, index) => {
-    const route = patrolRoute(field, nest.position, 6.5 + rng.next() * 3.5, 5, rng);
+    /*
+     * Waypoints inside the sanctuary are pushed out to its edge. Leaving them
+     * in would park the guardian on the keep-out ring for ever, walking at a
+     * point it is not allowed to reach.
+     */
+    const route = patrolRoute(field, nest.position, 6.5 + rng.next() * 3.5, 5, rng).map((p) => {
+      const q = { x: p.x, z: p.z };
+      keepOutOfSanctuary(q);
+      return q;
+    });
     const start = route[0] ?? nest.position;
     return {
       id: index,
@@ -282,6 +314,7 @@ export function stepLoop(
   }
   let pressure = 0;
   let pressureBearing = runtime.pursuitBearing;
+  const home = isHome(input.playerPosition);
 
   for (const guardian of runtime.guardians) {
     const toPlayer = {
@@ -313,6 +346,20 @@ export function stepLoop(
       input.difficulty,
       guardian.runtime.state === 'drowsy',
     );
+
+    /*
+     * Home is safe. A guardian cannot see into the sanctuary, and one that
+     * was chasing you stops at the edge the moment you cross it -- which is
+     * the "made it!" beat every chase is building towards.
+     */
+    if (home) {
+      guardian.perception = UNSEEN;
+      const state = guardian.runtime.state;
+      if (state === 'chase' || state === 'alert' || state === 'investigate') {
+        standDown(guardian.runtime);
+        if (state === 'chase') events.push({ type: 'guardianGaveUp' });
+      }
+    }
 
     // A landed lure within reach pulls the guardian's attention.
     let lure: Vec2 | null = null;
@@ -395,6 +442,7 @@ export function stepLoop(
     // --- the catch ---------------------------------------------------------
     if (
       result.state === 'chase' &&
+      !home &&
       distance <= GUARDIAN.catchRadius &&
       runtime.tumbleRemaining <= 0
     ) {
@@ -605,6 +653,7 @@ function moveGuardian(
     const step = speed * dt * (0.25 + alignment * 0.75);
     guardian.position.x += Math.sin(guardian.facing) * step;
     guardian.position.z += Math.cos(guardian.facing) * step;
+    keepOutOfSanctuary(guardian.position);
   }
 
   guardian.groundY = input.groundAt(guardian.position.x, guardian.position.z);
