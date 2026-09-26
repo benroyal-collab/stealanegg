@@ -251,9 +251,6 @@ export function playCue(synth: Synth, id: CueId, variation = 0): void {
       synth.tone(660, 0.14, { type: 'square', gain: 0.14 });
       synth.tone(880, 0.16, { type: 'square', gain: 0.12, delay: 0.13 });
       break;
-    case 'guardian-chase':
-      synth.tone(180, 0.32, { type: 'sawtooth', gain: 0.16, sweepTo: 300, channel: 'music' });
-      break;
     case 'guardian-giveup':
       synth.tone(400, 0.4, { type: 'sine', gain: 0.13, sweepTo: 230, channel: 'music' });
       break;

@@ -48,13 +48,21 @@ test('grabbing an egg starts a real chase', async ({ page }) => {
   }
   expect(grabbed, 'never reached a nest').toBe(true);
 
-  // Stand still for a moment. Something should be coming.
-  await advance(page, 12);
-  const caption =
-    (await page
-      .locator('.captions')
-      .textContent()
-      .catch(() => '')) ?? '';
+  /*
+   * Stand still for a moment. Something should be coming.
+   *
+   * Every caption shown over those frames is collected, not just whatever
+   * is on screen at the end: the track holds two lines, and a guardian that
+   * arrives quickly knocks the player over and pushes "chasing you" off the
+   * top before a single end-of-wait read would see it.
+   */
+  const captions = page.locator('.captions');
+  let caption = '';
+  for (let frame = 0; frame < 12; frame++) {
+    await advance(page, 1);
+    if ((await captions.count()) === 0) continue;
+    caption += ` ${(await captions.textContent()) ?? ''}`;
+  }
   // eslint-disable-next-line no-console
   console.log(`captions after the snatch: ${caption.replace(/\s+/g, ' ').trim()}`);
   expect(caption, 'nothing reacted to the theft').toMatch(/chasing/i);

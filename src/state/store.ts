@@ -48,6 +48,8 @@ export interface Caption {
   readonly text: string;
   readonly icon: string;
   readonly expiresAt: number;
+  /** Danger warnings outlast ordinary lines when the track is full. */
+  readonly urgent: boolean;
 }
 
 interface GameStore {
@@ -98,7 +100,7 @@ interface GameStore {
 
   // --- feedback
   toast: (icon: string, text: string, tone?: Toast['tone']) => void;
-  caption: (icon: string, text: string, seconds?: number) => void;
+  caption: (icon: string, text: string, seconds?: number, urgent?: boolean) => void;
   dismissBreakPrompt: () => void;
   clearOfflinePayout: () => void;
   setReveal: (roll: EggRoll | null) => void;
@@ -397,7 +399,7 @@ export const useGame = create<GameStore>((set, get) => ({
    * is how the "no sound without a caption" rule is kept true at runtime
    * rather than just asserted in a test.
    */
-  caption: (icon, text, seconds = 3) => {
+  caption: (icon, text, seconds = 3, urgent = false) => {
     const state = get();
     if (!state.save.settings.captions) return;
     captionId += 1;
@@ -406,15 +408,27 @@ export const useGame = create<GameStore>((set, get) => ({
       icon,
       text,
       expiresAt: state.save.playSeconds + seconds,
+      urgent,
     };
     /*
      * Two lines at most. A grab, a chase and a tumble can all land inside
      * one second, and three stacked caption bars on a laptop screen reach
      * the middle of the frame -- which is where the player and whatever is
-     * chasing them are. The newest two are the ones that matter; the older
-     * one has already been on screen.
+     * chasing them are.
+     *
+     * When full, the oldest ordinary line goes first. Evicting strictly by
+     * age dropped "A guardian is chasing you!" -- raised on the same frame as
+     * the egg caption, a hair earlier -- the moment the tumble arrived, so a
+     * player who cannot hear the sting never saw the warning at all.
      */
-    set((s) => ({ captions: [...s.captions.slice(-1), entry] }));
+    set((s) => {
+      const kept = [...s.captions];
+      while (kept.length >= 2) {
+        const ordinary = kept.findIndex((c) => !c.urgent);
+        kept.splice(ordinary === -1 ? 0 : ordinary, 1);
+      }
+      return { captions: [...kept, entry] };
+    });
   },
 
   dismissBreakPrompt: () => set({ showBreakPrompt: false }),

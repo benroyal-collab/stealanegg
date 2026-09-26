@@ -18,7 +18,9 @@ export function AudioBridge(): null {
   const caption = useGame((s) => s.caption);
 
   useEffect(() => {
-    audioDirector.attachCaptions((icon, text, seconds) => caption(icon, text, seconds));
+    audioDirector.attachCaptions((icon, text, seconds, urgent) =>
+      caption(icon, text, seconds, urgent),
+    );
     return () => audioDirector.attachCaptions(null);
   }, [caption]);
 

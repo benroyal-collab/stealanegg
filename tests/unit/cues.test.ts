@@ -79,7 +79,7 @@ describe('audio cue registry', () => {
     // continuous, or its caption never reaches the screen.
     const mustBeCaptioned: CueId[] = [
       'guardian-alert',
-      'guardian-chase',
+      'chase-start',
       'guardian-giveup',
       'caught',
       'egg-hatch',
@@ -103,5 +103,32 @@ describe('audio cue registry', () => {
     for (const id of CUE_IDS) {
       expect(CUES[id].id, `${id} is registered under the wrong key`).toBe(id);
     }
+  });
+});
+
+describe('the caption track', () => {
+  it('keeps a danger warning on screen when the track overflows', async () => {
+    /*
+     * The real order of a snatch under a guardian's nose: the chase warning
+     * is raised a hair before the egg caption on the same frame, and the
+     * tumble follows half a second later. Evicting strictly by age dropped
+     * the warning -- the one line a player who cannot hear the sting needs.
+     */
+    const { useGame } = await import('../../src/state/store');
+    const { caption } = useGame.getState();
+    const chase = CUES['chase-start'];
+    const caught = CUES.caught;
+    caption(chase.icon, chase.caption, chase.seconds, chase.urgent === true);
+    caption('egg', 'A Burrowbun egg! Take it home.', 3.5);
+    caption(caught.icon, caught.caption, caught.seconds, caught.urgent === true);
+
+    const lines = useGame.getState().captions.map((c) => c.text);
+    expect(lines).toHaveLength(2);
+    expect(lines).toContain(chase.caption);
+    expect(lines).toContain(caught.caption);
+  });
+
+  it('marks the warnings that matter as urgent', () => {
+    expect(CUES['chase-start'].urgent).toBe(true);
   });
 });

@@ -19,7 +19,7 @@ import { playCue, Synth } from './synth';
 export type ThreatLevel = 'calm' | 'alert' | 'chase';
 
 export interface CaptionSink {
-  (icon: string, text: string, seconds: number): void;
+  (icon: string, text: string, seconds: number, urgent: boolean): void;
 }
 
 export class AudioDirector {
@@ -67,7 +67,7 @@ export class AudioDirector {
   play(id: CueId, variation = 0): void {
     const cue = CUES[id];
     playCue(this.synth, id, variation);
-    if (!cue.continuous) this.caption?.(cue.icon, cue.caption, cue.seconds);
+    if (!cue.continuous) this.caption?.(cue.icon, cue.caption, cue.seconds, cue.urgent === true);
   }
 
   /** Switch the ambient bed when the player travels. */
@@ -127,7 +127,9 @@ export class AudioDirector {
     this.chaseGain.gain.setValueAtTime(this.chaseGain.gain.value, now);
     this.chaseGain.gain.linearRampToValueAtTime(target, now + time);
 
-    if (level === 'chase' && previous !== 'chase') this.play('guardian-chase');
+    // No sting here on entering a chase: the loop's `chaseStarted` event plays
+    // 'chase-start' for that moment. Both used to fire, which put two sounds
+    // and two captions -- "spotted you" and "chasing you" -- on one event.
     if (level === 'calm' && previous === 'chase') this.play('guardian-giveup');
   }
 

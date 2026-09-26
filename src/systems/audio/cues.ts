@@ -24,7 +24,6 @@ export type CueId =
   | 'discovery'
   | 'fuse'
   | 'guardian-alert'
-  | 'guardian-chase'
   | 'guardian-giveup'
   | 'guardian-drowsy'
   | 'caught'
@@ -64,6 +63,13 @@ export interface Cue {
    */
   readonly continuous: boolean;
   readonly channel: 'sfx' | 'music' | 'ambience';
+  /**
+   * A warning about danger right now. The caption track holds two lines, and
+   * when it is full an urgent line outlasts the others: a grab, a chase and
+   * a tumble can land inside half a second, and "A guardian is chasing you!"
+   * used to be the one pushed off.
+   */
+  readonly urgent?: boolean;
 }
 
 export const CUES: Record<CueId, Cue> = {
@@ -77,6 +83,7 @@ export const CUES: Record<CueId, Cue> = {
   },
   'chase-start': {
     id: 'chase-start',
+    urgent: true,
     // Short on purpose: it has to be read at a glance, mid-sprint.
     caption: 'A guardian is chasing you!',
     icon: 'alert',
@@ -163,14 +170,6 @@ export const CUES: Record<CueId, Cue> = {
     seconds: 2.5,
     continuous: false,
     channel: 'sfx',
-  },
-  'guardian-chase': {
-    id: 'guardian-chase',
-    caption: 'A guardian has spotted you!',
-    icon: 'shoo',
-    seconds: 3,
-    continuous: false,
-    channel: 'music',
   },
   'guardian-giveup': {
     id: 'guardian-giveup',
