@@ -1,11 +1,10 @@
 /**
  * A Guardian: the Broody Hen, the Sentinel Swan, the Dune Scorpion.
  *
- * The mesh comes from the same parametric builder as the creatures, so a
- * Guardian reads as a big cousin of the things you are collecting rather than
- * as an enemy. That is deliberate and it is a safety requirement, not a style
- * choice: nothing in this game is threatening, and a Guardian's job is to
- * shoo you away and then go back to sitting on its nest.
+ * Each is built as its own animal in `guardianMesh.ts`, because a child has to
+ * know what is chasing them from the silhouette alone. None of them is a
+ * threat -- a Guardian's job is to shoo you away and then go back to sitting
+ * on its nest -- but all of them are allowed to look cross about it.
  *
  * The FSM lives in `src/sim/guardian.ts`. This component only renders what
  * the FSM decided, and shows the player what it is thinking.
@@ -14,9 +13,9 @@
 import { useFrame } from '@react-three/fiber';
 import { forwardRef, useEffect, useMemo, useRef } from 'react';
 import { DoubleSide, MathUtils, type Group, type Mesh } from 'three';
-import type { CreatureBody, GuardianState } from '../../sim/types';
+import type { GuardianState } from '../../sim/types';
 import type { GuardianInstance } from '../../systems/loop';
-import { buildCreature, disposeCreature } from './creatureMesh';
+import { buildGuardian, disposeGuardian, type GuardianSpecies } from './guardianMesh';
 
 export interface GuardianEntityProps {
   /**
@@ -28,7 +27,7 @@ export interface GuardianEntityProps {
    * gives smooth movement for one prop.
    */
   instance: GuardianInstance;
-  body: CreatureBody;
+  species: GuardianSpecies;
   scale: number;
   visionConeDegrees: number;
   visionRange: number;
@@ -54,7 +53,7 @@ const STATE_ICON: Record<GuardianState, string> = {
 
 export function GuardianEntity({
   instance,
-  body,
+  species,
   scale,
   visionConeDegrees,
   visionRange,
@@ -66,14 +65,9 @@ export function GuardianEntity({
   const icon = useRef<Group>(null);
   const bob = useRef(0);
   const menace = useRef(0);
-  /** The head's rest position, captured once so the lunge can offset from it. */
-  const headBaseZ = useRef(0);
 
-  const parts = useMemo(() => buildCreature(body, scale), [body, scale]);
-  useEffect(() => {
-    headBaseZ.current = parts.head.position.z;
-    return () => disposeCreature(parts);
-  }, [parts]);
+  const rig = useMemo(() => buildGuardian(species, scale), [species, scale]);
+  useEffect(() => () => disposeGuardian(rig), [rig]);
 
   useFrame((_state, rawDelta) => {
     const g = root.current;
@@ -85,58 +79,91 @@ export function GuardianEntity({
     g.rotation.y = MathUtils.damp(g.rotation.y, instance.facing, 8, dt);
 
     const chasing = state === 'chase';
+    const drowsy = state === 'drowsy';
     const moving = chasing || state === 'investigate' || state === 'patrol';
-    bob.current += dt * (chasing ? 14 : state === 'drowsy' ? 1.2 : 4);
+    // 14 rad/s is 2.2 steps a second: fast enough to pound, and every wing
+    // beat keyed off it stays under the 3Hz ceiling.
+    bob.current += dt * (chasing ? 14 : drowsy ? 1.2 : 4);
+    const b = bob.current;
 
     /*
      * Menace, built from posture rather than from anything unkind.
      *
      * A chasing guardian rears up, pitches forward and pounds -- bigger,
-     * lower and faster than the thing that was pottering about a second ago.
-     * The brief is emphatic that nothing in this game hurts anybody, so the
-     * scare has to come from presence and commitment, the way a cross goose
-     * is frightening without ever being a threat.
+     * lower and faster than the thing that was pottering about a second ago
+     * -- and throws its wings or pincers wide. The brief is emphatic that
+     * nothing in this game hurts anybody, so the scare has to come from
+     * presence and commitment, the way a cross goose is frightening without
+     * ever being a threat.
      */
     menace.current = MathUtils.damp(menace.current, chasing ? 1 : 0, 7, dt);
     const m = menace.current;
     g.scale.setScalar(1 + m * 0.16);
-    parts.body.position.y =
-      parts.body.userData.baseY !== undefined
-        ? (parts.body.userData.baseY as number) +
-          (moving ? Math.abs(Math.sin(bob.current)) * 0.06 : 0)
-        : parts.body.position.y;
+    rig.body.position.y = rig.bodyBaseY + (moving ? Math.abs(Math.sin(b)) * 0.06 : 0);
 
-    // A drowsy guardian visibly slumps; a chasing one lowers its head and
-    // drives forward.
-    const slump = state === 'drowsy' ? -0.18 : m * 0.34;
-    parts.body.rotation.x = MathUtils.damp(parts.body.rotation.x, slump, 6, dt);
-    // Head down and thrust out. Half of what makes a charge read as a charge.
-    parts.head.rotation.x = MathUtils.damp(parts.head.rotation.x, m * 0.5, 7, dt);
-    parts.head.position.z = MathUtils.damp(
-      parts.head.position.z,
-      headBaseZ.current + m * 0.14,
-      7,
-      dt,
-    );
+    // A drowsy guardian visibly slumps; a chasing one drives forward.
+    const pitch = drowsy ? -0.18 : m * rig.lean;
+    rig.body.rotation.x = MathUtils.damp(rig.body.rotation.x, pitch, 6, dt);
 
-    for (let i = 0; i < parts.legs.length; i++) {
-      const leg = parts.legs[i];
+    if (rig.head !== null) {
+      /*
+       * Head down and thrust out: half of what makes a charge read as a
+       * charge. On patrol the head nods once a step, which is the whole of
+       * how a bird walks as far as anyone watching is concerned.
+       */
+      const nod = moving && !chasing ? Math.sin(b * 2) * 0.1 : 0;
+      const droop = drowsy ? 0.5 : 0;
+      rig.head.rotation.x = MathUtils.damp(
+        rig.head.rotation.x,
+        m * rig.charge + nod + droop,
+        9,
+        dt,
+      );
+      rig.head.position.z = rig.headBaseZ + m * rig.thrust;
+    }
+
+    for (let i = 0; i < rig.legs.length; i++) {
+      const leg = rig.legs[i];
       if (leg === undefined) continue;
-      const offset = (i % 2 === 0 ? 0 : Math.PI) + Math.floor(i / 2) * 0.7;
-      // Longer stride under pursuit, so the gait matches the speed.
-      leg.rotation.x = moving ? Math.sin(bob.current + offset) * (0.42 + m * 0.4) : 0;
+      const offset = i % 2 === 0 ? 0 : Math.PI;
+      const step = Math.sin(b + offset);
+      if (rig.gait === 'stride') {
+        // Longer stride under pursuit, so the gait matches the speed.
+        leg.rotation.x = moving ? step * (0.42 + m * 0.4) : 0;
+      } else {
+        // Scuttle: each set of four lifts and swings while the other plants.
+        leg.position.y = rig.bodyBaseY + (moving ? Math.max(0, step) * 0.06 : 0);
+        leg.rotation.y = moving ? step * (0.1 + m * 0.08) : 0;
+      }
+    }
+
+    for (let i = 0; i < rig.arms.length; i++) {
+      const arm = rig.arms[i];
+      if (arm === undefined) continue;
+      const side = i === 0 ? -1 : 1;
+      if (rig.armStyle === 'wing') {
+        // Wings thrown open and beating on the stride. Folded otherwise.
+        const beat = Math.sin(b) * rig.armBeat;
+        arm.rotation.z = MathUtils.damp(arm.rotation.z, side * m * (rig.armSpread + beat), 12, dt);
+      } else {
+        // Pincers up and open, swaying either side of the face.
+        arm.rotation.x = MathUtils.damp(arm.rotation.x, -m * 0.38, 8, dt);
+        arm.rotation.y = side * (m * rig.armSpread + Math.sin(b + side) * (0.04 + m * rig.armBeat));
+      }
+    }
+
+    if (rig.tail !== null) {
+      // Curls further over the back as it charges, and never stops swaying.
+      rig.tail.rotation.x = MathUtils.damp(
+        rig.tail.rotation.x,
+        m * 0.28 + Math.sin(b * 0.5) * 0.06,
+        6,
+        dt,
+      );
     }
 
     const camera = _state.camera.position;
     const toCamera = Math.hypot(camera.x - instance.position.x, camera.z - instance.position.z);
-
-    /*
-     * Eyes, pupils, ears and belly are a dozen extra draw calls per guardian,
-     * paid again for every shadow cascade, and past twenty metres each one is
-     * smaller than the pixel it lands in. Hiding the detail group is free
-     * fidelity: nobody can see what is being removed.
-     */
-    parts.detail.visible = toCamera < DETAIL_DRAW_DISTANCE;
 
     if (cone.current !== null) {
       /*
@@ -165,16 +192,12 @@ export function GuardianEntity({
     }
   });
 
-  useEffect(() => {
-    parts.body.userData.baseY = parts.body.position.y;
-  }, [parts]);
-
   const coneLength = visionRange;
   const coneRadius = Math.tan((visionConeDegrees * Math.PI) / 360) * coneLength;
 
   return (
     <group ref={root}>
-      <primitive object={parts.root} />
+      <primitive object={rig.root} />
 
       {/*
         The vision cone. Flat on the ground, pointing where the Guardian is
@@ -211,7 +234,7 @@ export function GuardianEntity({
         state costs a visibility flag instead of a React reconcile -- this
         component never re-renders after mount.
       */}
-      <StateIcons ref={icon} height={scale * 1.5} instance={instance} />
+      <StateIcons ref={icon} height={(rig.height + 0.35) * scale} instance={instance} />
       {/* coneRadius is derived for callers that want to lay out a HUD blip. */}
       <group visible={false} userData={{ coneRadius }} />
     </group>
@@ -220,9 +243,6 @@ export function GuardianEntity({
 
 /** Beyond this, a vision cone costs overdraw and tells the player nothing. */
 const CONE_DRAW_DISTANCE = 34;
-
-/** Beyond this, a creature's small features are smaller than a pixel. */
-const DETAIL_DRAW_DISTANCE = 22;
 
 /**
  * The thought bubbles above a Guardian's head.

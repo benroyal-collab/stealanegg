@@ -35,9 +35,10 @@ export interface CreatureParts {
    * hidden at distance.
    *
    * Each one is its own draw call, and every draw call is paid again for
-   * every shadow cascade. Nine guardians with fourteen meshes apiece was
-   * comfortably the largest single item in the frame's draw budget, and none
-   * of it is visible past about twenty metres.
+   * every shadow cascade. A habitat full of creatures with fourteen meshes
+   * apiece adds up fast, and none of it is visible past about twenty metres.
+   * (The guardians used to be built here too; they have their own baked
+   * meshes now, in `guardianMesh.ts`.)
    */
   detail: Group;
   /** Disposed together when the creature leaves the scene. */
@@ -105,9 +106,9 @@ export function buildCreature(body: CreatureBody, scale = 1): CreatureParts {
   /*
    * A snout. One cone, and the head stops being a ball.
    *
-   * Every guardian in the game is a bird or a burrowing thing, and a face
-   * needs something that points. It also gives the chase a direction to read
-   * at a glance -- you can tell what a creature is looking at from behind.
+   * A face needs something that points. It also gives the creature a
+   * direction to read at a glance -- you can tell what it is looking at from
+   * behind.
    */
   const snoutGeo = new ConeGeometry(headRadius * 0.34, headRadius * 0.95, 7);
   snoutGeo.rotateX(Math.PI / 2);

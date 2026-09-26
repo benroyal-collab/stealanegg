@@ -191,8 +191,8 @@ Target: locked 60fps at 1080p on integrated graphics.
 
 | Budget            | Limit           | Measured at High | Measured at Low |
 | ----------------- | --------------- | ---------------- | --------------- |
-| Draw calls        | ≤ 450           | **360**          | 176             |
-| Triangles         | ≤ 1.2M          | **929k**         | 286k            |
+| Draw calls        | ≤ 450           | **323**          | 155             |
+| Triangles         | ≤ 1.2M          | **793k**         | 279k            |
 | Initial JS bundle | ≤ 250KB gzipped | **85KB**         | 85KB            |
 | CPU frame         | ≤ 6ms           | not measured     | not measured    |
 | GPU frame         | ≤ 12ms          | not measured     | not measured    |

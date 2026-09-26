@@ -34,6 +34,7 @@ import { playerRef } from './player/playerRuntime';
 import { sampleHeight, type TerrainField } from './world/terrain';
 import { NestEntity } from './entities/Nest';
 import { GuardianEntity } from './entities/GuardianEntity';
+import type { GuardianSpecies } from './entities/guardianMesh';
 import { EggArcClock, EggEntity } from './entities/EggEntity';
 import { RivalMarkers } from './entities/RivalMarkers';
 import { Sanctuary, SANCTUARY_RADIUS, STATIONS, type StationId } from './world/Sanctuary';
@@ -434,7 +435,7 @@ export function BiomeRuntime({
         <GuardianEntity
           key={guardian.id}
           instance={guardian}
-          body={guardianBody(biome)}
+          species={GUARDIAN_SPECIES[biome]}
           scale={guardianScale(biome)}
           visionConeDegrees={def.guardian.visionConeDegrees}
           visionRange={def.guardian.visionRange}
@@ -519,54 +520,20 @@ function promptKey(prompt: Prompt | null): string {
   return prompt === null ? '' : `${prompt.kind}:${prompt.label}`;
 }
 
-/**
- * A guardian is a big cousin of the creatures you collect, built from the
- * same parametric vocabulary. Nothing in this game looks like a threat.
- */
-function guardianBody(biome: BiomeId): Parameters<typeof GuardianEntity>[0]['body'] {
-  switch (biome) {
-    case 'mirrormere':
-      return {
-        palette: ['#f4f6f8', '#ffffff', '#e0a038'],
-        bodyRadius: 0.44,
-        bodyStretch: 1.5,
-        legCount: 2,
-        legLength: 0.42,
-        earStyle: 'none',
-        tailStyle: 'fan',
-        eyeSize: 0.075,
-        shellPattern: 'plain',
-      };
-    case 'dunes':
-      return {
-        palette: ['#c08a4a', '#e8c088', '#6a4a28'],
-        bodyRadius: 0.46,
-        bodyStretch: 1.35,
-        legCount: 6,
-        legLength: 0.34,
-        earStyle: 'fin',
-        tailStyle: 'long',
-        eyeSize: 0.055,
-        shellPattern: 'band',
-      };
-    case 'glade':
-    default:
-      return {
-        palette: ['#b8703c', '#e0a868', '#5a3a20'],
-        bodyRadius: 0.48,
-        bodyStretch: 1.15,
-        legCount: 2,
-        legLength: 0.24,
-        earStyle: 'frill',
-        tailStyle: 'fan',
-        eyeSize: 0.08,
-        shellPattern: 'speckle',
-      };
-  }
-}
+/** Which animal guards which biome. */
+const GUARDIAN_SPECIES: Record<BiomeId, GuardianSpecies> = {
+  glade: 'hen',
+  mirrormere: 'swan',
+  dunes: 'scorpion',
+};
 
+/**
+ * The meshes are built at their real size, so this is only a nudge. The
+ * scorpion is the lowest of the three and gets a little extra so it still
+ * fills the frame when it is right behind you.
+ */
 function guardianScale(biome: BiomeId): number {
-  return biome === 'dunes' ? 1.35 : biome === 'mirrormere' ? 1.45 : 1.2;
+  return biome === 'dunes' ? 1.1 : 1;
 }
 
 export const CARRY_PENALTIES = CARRY_PENALTY;

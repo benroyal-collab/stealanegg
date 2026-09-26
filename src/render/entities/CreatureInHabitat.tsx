@@ -21,7 +21,7 @@ export interface CreatureInHabitatProps {
   size: SizeId;
 }
 
-/** A hatchling is half a guardian's size, so its detail vanishes sooner. */
+/** A hatchling is small, so its detail vanishes sooner. */
 const HATCHLING_DETAIL_DISTANCE = 18;
 
 export function CreatureInHabitat({
@@ -95,9 +95,9 @@ export function CreatureInHabitat({
       parts.tail.rotation.y = Math.sin(state.clock.elapsedTime * 2.2) * 0.22;
     }
 
-    // Same distance cull as the guardians: a habitat full of hatchlings is
-    // otherwise one of the heaviest things in the sanctuary, and a hatchling
-    // is half the size of one, so the detail goes sooner.
+    // Distance cull on the small features: a habitat full of hatchlings is
+    // otherwise one of the heaviest things in the sanctuary, and at this size
+    // the detail is sub-pixel well before twenty metres.
     const camera = state.camera.position;
     const toCamera = Math.hypot(camera.x - g.position.x, camera.z - g.position.z);
     parts.detail.visible = toCamera < HATCHLING_DETAIL_DISTANCE;
