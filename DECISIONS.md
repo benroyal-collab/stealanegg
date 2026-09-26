@@ -487,6 +487,24 @@ Two consequences had to be handled or the chase would merely have been unfair:
   lose everything" is how an eight year old decides to stop playing. Now it
   lies where it fell and going back in for it is a decision.
 
+### Two things the new pressure broke, both found by running it
+
+**The catch was a pin, not a setback.** The tumble lasts about a second and
+the catch radius is 1.35 metres, so a guardian that stayed in `chase` after
+catching you simply knocked you down again the moment you stood up. A
+cold-start run walked to within four metres of the first nest and then stood
+in the same spot for the remaining fifty seconds, being repeatedly flattened
+by the same hen. The catcher now drops into cooldown -- it shooed you off, it
+is pleased with itself, it goes back to its nest -- which is also the
+guaranteed breather the design always claimed to offer.
+
+**The alarm was a dogpile.** Waking everything within 34 metres meant nine
+guardians converging on one nest. That is not frightening, it is a wall: a
+child cannot read it, escape it, or learn anything from it, and the loop gate
+failed four heists in a row without ever getting the egg off the nest. Only
+the nearest two answer now. Two is enough to feel hunted and leaves the escape
+solvable, which is the whole difference between tense and unfair.
+
 ### Amateurish, specifically
 
 Worth naming the tells rather than treating "looks cheap" as a mood:

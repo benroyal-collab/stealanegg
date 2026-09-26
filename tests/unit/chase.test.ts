@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BIOME_DEFS } from '../../src/data/biomes';
 import { CARRY_PENALTY, CHASE, GUARDIAN, MOVEMENT, STAMINA } from '../../src/data/balance';
-import { createGuardianRuntime, stepGuardian } from '../../src/sim/guardian';
+import { createGuardianRuntime, standDown, stepGuardian } from '../../src/sim/guardian';
 import type { BiomeId } from '../../src/sim/types';
 
 /**
@@ -126,6 +126,38 @@ describe('the chase', () => {
       dt: DT,
     });
     expect(result.state).toBe('chase');
+  });
+
+  it('backs off after a catch, so a tumble is a setback and not a pin', () => {
+    /*
+     * The tumble lasts about a second and the catch radius is 1.35 metres, so
+     * a guardian that stays in `chase` after catching you simply knocks you
+     * over again the moment you stand up. A cold-start run walked to within
+     * four metres of the first nest and then stood in one spot for the rest
+     * of the test being repeatedly flattened by the same hen.
+     */
+    const rt = createGuardianRuntime();
+    rt.state = 'chase';
+    standDown(rt);
+    expect(rt.state).toBe('cooldown');
+
+    // And it ignores the player for the whole reset window.
+    let t = 0;
+    while (t < GUARDIAN.resetWindowSeconds * 0.9) {
+      stepGuardian(rt, {
+        config: BIOME_DEFS.glade.guardian,
+        perception: { sees: true, hears: true, strength: 1 },
+        difficulty: 'standard',
+        playerPosition: { x: 0, z: 0 },
+        lure: null,
+        sleepTriggered: false,
+        snatchAlarm: false,
+        playerPace: CARRYING,
+        dt: DT,
+      });
+      t += DT;
+    }
+    expect(rt.state).toBe('cooldown');
   });
 
   it('still sleeps through the alarm, so the berry is worth carrying', () => {

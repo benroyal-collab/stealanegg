@@ -52,14 +52,15 @@ async function readSave(page: Page): Promise<{
   });
 }
 
-/** The live incubator, straight out of the save the game writes. */
-async function readIncubator(page: Page): Promise<{ remaining: number; total: number } | null> {
-  return page.evaluate(() => {
-    const raw = window.localStorage.getItem('egg-heist-wildlands/save');
-    if (raw === null) return null;
-    const save = JSON.parse(raw) as { incubator?: { remaining: number; total: number } | null };
-    return save.incubator ?? null;
-  });
+/**
+ * Seconds left on the incubator, read from the live store.
+ *
+ * Not from localStorage: `tick` runs the countdown every frame but does not
+ * persist sixty times a second, so the saved copy sits still and a test
+ * watching it concludes the clock is stopped.
+ */
+async function readIncubator(page: Page): Promise<number | null> {
+  return page.evaluate(() => window.__eggheist?.incubatorSeconds() ?? null);
 }
 
 /** Drop the incubator to nearly zero and reload, so the egg is ready to collect. */
@@ -177,13 +178,25 @@ test('the full loop runs end to end and the save round-trips', async ({ page }) 
       { moveX: -1, moveY: -0.6 },
     ];
 
+    /*
+     * "Grab it back" as well as "pick up".
+     *
+     * A catch now drops the egg where you fell instead of deleting it, so a
+     * player who gets shooed on the way home does what any child would and
+     * scoops it up again. A test that only looks for the nest prompt walks
+     * home empty-handed and reports that the loop is broken.
+     */
+    const PICKUP = /pick up|grab it back/i;
     let grabbed = false;
     for (let leg = 0; leg < 22 && !grabbed; leg++) {
-      grabbed = await stepAndTry(page, prompt, { moveY: -1, sprint: true }, /pick up/i);
+      grabbed = await stepAndTry(page, prompt, { moveY: -1, sprint: true }, PICKUP);
     }
+    const reached = await page.evaluate(() => window.__eggheist?.sample() ?? null);
+    // eslint-disable-next-line no-console
+    console.log(`outbound ended at z=${reached?.z.toFixed(1)} grabbed=${grabbed}`);
     for (let lap = 0; lap < 8 && !grabbed; lap++) {
       for (const heading of headings) {
-        grabbed = await stepAndTry(page, prompt, { ...heading, sprint: true }, /pick up/i);
+        grabbed = await stepAndTry(page, prompt, { ...heading, sprint: true }, PICKUP);
         if (grabbed) break;
       }
     }
@@ -200,6 +213,11 @@ test('the full loop runs end to end and the save round-trips', async ({ page }) 
       // eslint-disable-next-line no-console
       console.log(`home ${leg}: x=${state.x.toFixed(1)} z=${state.z.toFixed(1)}`);
       if (distance < 4) break;
+      // Dropped it? Pick it up before carrying on, the way a player would.
+      if ((await prompt.count()) > 0 && /grab it back/i.test((await prompt.textContent()) ?? '')) {
+        await page.evaluate(() => window.__eggheist?.setVirtualInput({ interact: true }));
+        await hold(page, 400);
+      }
       // The virtual stick is in camera space and the test never rotates the
       // camera, so world space and stick space agree.
       await drive(
@@ -251,9 +269,7 @@ test('the full loop runs end to end and the save round-trips', async ({ page }) 
   expect(beforeWait, 'nothing is incubating').not.toBeNull();
   await hold(page, 1200);
   const afterWait = await readIncubator(page);
-  expect(afterWait!.remaining, 'the incubator is not counting down').toBeLessThan(
-    beforeWait!.remaining,
-  );
+  expect(afterWait!, 'the incubator is not counting down').toBeLessThan(beforeWait!);
 
   await windIncubatorForward(page);
   await page.evaluate(() => window.__eggheist?.setVirtualInput({ interact: true }));

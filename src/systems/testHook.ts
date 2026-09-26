@@ -38,6 +38,15 @@ export interface TestHook {
   setVirtualInput: (patch: Partial<VirtualInput>) => void;
   ready: () => boolean;
   phase: () => string;
+  /**
+   * Seconds left on the incubator, or null when it is empty.
+   *
+   * Read from the live store rather than from the save file. `tick` mutates
+   * the countdown every frame but deliberately does not persist sixty times a
+   * second, so a test that watches localStorage sees a number that never
+   * moves and concludes the clock is stopped -- which is what happened.
+   */
+  incubatorSeconds: () => number | null;
 }
 
 export interface VirtualInput {
@@ -67,6 +76,7 @@ let latest: TestSample | null = null;
 let frame = 0;
 let readyFlag = false;
 let phaseFn: () => string = () => 'unknown';
+let incubatorFn: () => number | null = () => null;
 
 export function testHookEnabled(): boolean {
   if (import.meta.env.DEV) return true;
@@ -74,9 +84,13 @@ export function testHookEnabled(): boolean {
   return new URLSearchParams(window.location.search).get('e2e') === '1';
 }
 
-export function installTestHook(getPhase: () => string): void {
+export function installTestHook(
+  getPhase: () => string,
+  getIncubatorSeconds: () => number | null,
+): void {
   if (!testHookEnabled() || typeof window === 'undefined') return;
   phaseFn = getPhase;
+  incubatorFn = getIncubatorSeconds;
   const hook: TestHook = {
     enabled: true,
     sample: () => latest,
@@ -85,6 +99,7 @@ export function installTestHook(getPhase: () => string): void {
     setVirtualInput: (patch) => Object.assign(virtualInput, patch),
     ready: () => readyFlag,
     phase: () => phaseFn(),
+    incubatorSeconds: () => incubatorFn(),
   };
   (window as unknown as Record<string, unknown>).__eggheist = hook;
 }

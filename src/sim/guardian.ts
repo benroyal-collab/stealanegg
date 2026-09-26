@@ -122,6 +122,25 @@ export interface GuardianStepResult {
  * allocating a new runtime object here would be a per-frame allocation in a
  * hot path.
  */
+/**
+ * The guardian has shooed the player off. Job done.
+ *
+ * Without this a catch is a trap rather than a setback: the tumble lasts about
+ * a second, the guardian is still standing on top of the player when they get
+ * up, and it catches them again on the next frame. A cold-start playtest run
+ * walked to within four metres of the first nest and then stood in the same
+ * spot for the remaining fifty seconds of the test, being repeatedly knocked
+ * over by the same hen.
+ *
+ * Dropping the catcher into cooldown also reads correctly -- it chased you
+ * off, it is pleased with itself, it goes back to its nest -- and cooldown
+ * already ignores the player for `resetWindowSeconds`, which is exactly the
+ * guaranteed breather the design calls for.
+ */
+export function standDown(rt: GuardianRuntime): void {
+  setState(rt, 'cooldown');
+}
+
 export function stepGuardian(rt: GuardianRuntime, input: GuardianStepInput): GuardianStepResult {
   const { config, perception, difficulty, dt } = input;
   const mods = DIFFICULTY_MODS[difficulty];

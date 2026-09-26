@@ -308,6 +308,17 @@ export const CHASE = {
   snatchAlarmRadius: 34,
 
   /**
+   * How many guardians answer one alarm.
+   *
+   * The nearest two, not everything in earshot. Unlimited responders turned a
+   * heist into a dogpile: nine guardians converging on one nest is not
+   * frightening, it is a wall, and a child cannot read it, escape it or learn
+   * anything from it. Two is enough to feel hunted and leaves the escape
+   * solvable, which is the difference between tense and unfair.
+   */
+  snatchAlarmMaxResponders: 2,
+
+  /**
    * How long a guardian keeps hunting after losing contact.
    *
    * Was four seconds, which meant breaking line of sight ended the run. Seven

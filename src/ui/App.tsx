@@ -39,7 +39,10 @@ export function App(): React.ReactElement {
 
   useEffect(() => {
     load();
-    installTestHook(() => useGame.getState().phase);
+    installTestHook(
+      () => useGame.getState().phase,
+      () => useGame.getState().save.incubator?.remaining ?? null,
+    );
   }, [load]);
 
   // Apply the accessibility settings that live in CSS rather than in the

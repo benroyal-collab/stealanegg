@@ -39,6 +39,7 @@ declare global {
       setVirtualInput: (patch: Partial<VirtualInput>) => void;
       ready: () => boolean;
       phase: () => string;
+      incubatorSeconds: () => number | null;
     };
   }
 }

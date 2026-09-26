@@ -13,6 +13,7 @@ import { BIOME_DEFS } from '../data/biomes';
 import {
   createGuardianRuntime,
   perceive,
+  standDown,
   stepGuardian,
   type PerceptionResult,
 } from '../sim/guardian';
@@ -205,6 +206,8 @@ export interface LoopStepInput {
 }
 
 let nextLooseId = 1;
+/** Scratch for picking alarm responders. Reused, so the frame allocates nothing. */
+const responders: { guardian: GuardianInstance; d: number }[] = [];
 const rivalEvents: RivalEvent[] = [];
 const nestTick = { respawned: [] as number[] };
 
@@ -250,9 +253,23 @@ export function stepLoop(
   // --- guardians -----------------------------------------------------------
   const config = BIOME_DEFS[runtime.biome].guardian;
   let threat: LoopRuntime['threat'] = 'calm';
-  // Read and clear: the alarm is a single-frame edge, not a state.
+  /*
+   * Read and clear: the alarm is a single-frame edge, not a state.
+   *
+   * Only the nearest few guardians answer it. Waking everything in earshot
+   * made a heist a dogpile rather than a chase.
+   */
   const alarmAt = runtime.snatchAlarmAt;
   runtime.snatchAlarmAt = null;
+  if (alarmAt !== null) {
+    responders.length = 0;
+    for (const guardian of runtime.guardians) {
+      const d = Math.hypot(alarmAt.x - guardian.position.x, alarmAt.z - guardian.position.z);
+      if (d <= CHASE.snatchAlarmRadius) responders.push({ guardian, d });
+    }
+    responders.sort((a, b) => a.d - b.d);
+    responders.length = Math.min(responders.length, CHASE.snatchAlarmMaxResponders);
+  }
   let pressure = 0;
 
   for (const guardian of runtime.guardians) {
@@ -302,15 +319,12 @@ export function stepLoop(
     }
 
     /*
-     * Everything within earshot of the nest answers the alarm, whether or not
-     * it can see anyone. Distance is measured from the robbed nest rather than
-     * from the player, so a guardian on the far side of the world does not
-     * wake up just because the player has since run towards it.
+     * One of the nearest keepers, picked above. Distance is measured from the
+     * robbed nest rather than from the player, so a guardian on the far side
+     * of the world does not wake up just because the player has since run
+     * towards it.
      */
-    const alarm =
-      alarmAt !== null &&
-      Math.hypot(alarmAt.x - guardian.position.x, alarmAt.z - guardian.position.z) <=
-        CHASE.snatchAlarmRadius;
+    const alarm = alarmAt !== null && responders.some((r) => r.guardian === guardian);
 
     const before = guardian.runtime.state;
     const result = stepGuardian(guardian.runtime, {
@@ -364,6 +378,9 @@ export function stepLoop(
       distance <= GUARDIAN.catchRadius &&
       runtime.tumbleRemaining <= 0
     ) {
+      // The catcher backs off, or the tumble becomes a pin: a second on the
+      // floor, up, caught again, forever.
+      standDown(guardian.runtime);
       runtime.tumbleRemaining = GUARDIAN.tumbleSeconds;
       runtime.hitstopRemaining = MOVEMENT.hitstopMs / 1000;
       const dropped = runtime.carried;
