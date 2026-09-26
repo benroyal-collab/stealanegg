@@ -554,6 +554,52 @@ Mirrormere the least contrast (0.09) because the mist is the point and
 crushing it turns a deliberately soft biome into a postcard; the Dunes are
 already high contrast and need only 0.07.
 
+## Feel and readability
+
+### Half the movement verbs were silent
+
+`jump`, `land`, `vault`, `slide` and `splash` were all defined in the cue
+registry, synthesised in `synth.ts`, given captions, and played by nothing.
+The solver had been publishing `justJumped`, `justLanded`, `justVaulted` and
+`justSlid` on the player runtime the whole time and no one was reading them.
+
+A jump that makes no sound does not feel like a jump. This is the cheapest
+polish available in any game and it had been sitting one line away for months
+— which is worth noting as a pattern: the work was done, the wiring was not,
+and nothing failed, because a missing sound cannot fail a test that only
+checks the registry is self-consistent.
+
+### Nothing sounded fast
+
+Sprinting sounded exactly like standing still, which is a real part of why the
+game read as ponderous even before the chase was fixed. Speed is sold at least
+as much through the ears as the eyes.
+
+Rather than add a second noise source, the existing ambient bed is ridden:
+gain and bandpass cutoff both rise with speed, and again under pursuit, so a
+chase is audibly more frantic than an errand. Two parameter ramps a frame.
+
+One subtlety worth recording. `startBed` schedules a two-second fade-in, and a
+bare `linearRampToValueAtTime` continues from the last _scheduled_ value
+rather than the current one — so the first frame of movement after entering a
+biome yanked the gain to full and the wind popped in. Cancelling and pinning
+the live value first makes each frame's ramp start from what is actually being
+heard.
+
+### A threat you cannot find is not tension
+
+The camera pulls back under pursuit, which brings a guardian into shot when it
+is roughly behind you — but not when it is off to one side, and not at all
+when it comes from in front. For an adult that is a camera-discipline problem.
+For an eight year old it is an ambush: the first they know about it is being
+knocked over.
+
+So a chevron rides the edge of the screen on the bearing of the nearest
+pursuer and hides once that pursuer is comfortably in view. It reads from the
+player runtime each frame and writes through a ref, the same way the stamina
+ring does. Shape carries the meaning — it is an arrow, it points, and it grows
+as the danger closes — with the caption track saying so in words alongside.
+
 ## Performance — measuring the budget properly
 
 ### Reading the counters at all

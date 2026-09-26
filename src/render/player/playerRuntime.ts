@@ -58,6 +58,8 @@ export interface PlayerRuntime {
    * actually is.
    */
   pursuitPressure: number;
+  /** World bearing to the nearest pursuer, radians. See `pursuitPressure`. */
+  pursuitBearing: number;
 }
 
 export const playerRef: PlayerRuntime = {
@@ -82,4 +84,5 @@ export const playerRef: PlayerRuntime = {
   shakeRequest: 0,
   tumbleRemaining: 0,
   pursuitPressure: 0,
+  pursuitBearing: 0,
 };

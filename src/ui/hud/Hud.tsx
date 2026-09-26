@@ -16,6 +16,7 @@ import { useGame } from '../../state/store';
 import { Icon } from '../Icon';
 import { formatMoney } from '../format';
 import { PromptChip } from './PromptChip';
+import { DangerArrow } from './DangerArrow';
 import { StaminaRing } from './StaminaRing';
 import { IncubatorPill } from './IncubatorPill';
 import { CaptionTrack } from './CaptionTrack';
@@ -70,6 +71,7 @@ export function Hud(): React.ReactElement | null {
       </div>
 
       <StaminaRing />
+      <DangerArrow />
       {prompt !== null ? <PromptChip prompt={prompt} /> : null}
       <CaptionTrack />
       <ToastStack />

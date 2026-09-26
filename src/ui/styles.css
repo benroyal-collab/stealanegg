@@ -124,6 +124,23 @@ button {
 
 /* --- hud ----------------------------------------------------------------- */
 
+/*
+ * The off-screen danger pointer.
+ *
+ * Positioned from script every frame, so this only owns how it looks. Fixed
+ * rather than absolute because the HUD grid would otherwise fight the
+ * percentage placement, and it must never eat a click.
+ */
+.danger-arrow {
+  position: fixed;
+  z-index: 5;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgb(0 0 0 / 55%));
+  /* Only the fade is eased. Position and rotation are driven per frame and
+     must not lag behind the thing they are pointing at. */
+  transition: opacity 140ms ease-out;
+}
+
 .hud {
   position: fixed;
   inset: 0;

@@ -139,9 +139,41 @@ export class AudioDirector {
       readonly speed: number;
       readonly inWater: boolean;
       readonly biome: BiomeId;
+      /**
+       * One-shot movement verbs, true only on the frame they happen.
+       *
+       * These cues were written, synthesised and registered months ago and
+       * then never played by anything: jumping, landing, vaulting and sliding
+       * were all completely silent. A jump that makes no sound does not feel
+       * like a jump, and it is the cheapest polish in any game.
+       */
+      readonly jumped: boolean;
+      readonly landed: boolean;
+      readonly vaulted: boolean;
+      readonly slid: boolean;
+      /** How close the nearest pursuer is, 0..1. Drives the chase mix. */
+      readonly pursuitPressure: number;
     },
   ): void {
     if (!this.synth.ready || this.muted) return;
+
+    if (context.jumped) this.play('jump');
+    if (context.vaulted) this.play('vault');
+    if (context.slid) this.play('slide');
+    if (context.landed) this.play(context.inWater ? 'splash' : 'land');
+
+    /*
+     * Wind rush.
+     *
+     * Speed is sold at least as much through the ears as the eyes, and this
+     * game had nothing: sprinting sounded exactly like standing still, which
+     * is half of why it read as ponderous. Filtered noise whose level and
+     * brightness both rise with speed, plus a lift under pursuit so a chase
+     * is audibly more frantic than an errand.
+     */
+    const rush = Math.min(1, context.speed / 7) ** 1.6;
+    const chased = Math.min(1, context.pursuitPressure);
+    this.setWind(rush * (0.55 + chased * 0.45));
 
     // --- wildlife --------------------------------------------------------
     const ambience = BIOME_DEFS[context.biome].ambience;
@@ -191,6 +223,44 @@ export class AudioDirector {
    * Each biome moves the filter and the drone, which is enough to make the
    * three of them sound like different places without any recorded audio.
    */
+  /**
+   * Ride the ambient bed with the player's speed.
+   *
+   * Reuses the bed rather than adding a second noise source: opening the
+   * bandpass and lifting the gain turns the same wind from "a quiet meadow"
+   * into "air going past your ears" for the cost of two parameter ramps a
+   * frame. Ramped rather than set, or it clicks.
+   */
+  private setWind(amount: number): void {
+    const bed = this.bed;
+    const context = this.synth.ctx;
+    if (bed === null || context === null || this.biome === null) return;
+
+    const def = BIOME_DEFS[this.biome].ambience;
+    const now = context.currentTime;
+
+    /*
+     * Re-anchor before ramping.
+     *
+     * `startBed` schedules a two-second fade-in, and a bare
+     * `linearRampToValueAtTime` continues from the last *scheduled* value
+     * rather than the current one -- so the first frame of movement after
+     * entering a biome would yank the gain to full and the wind would pop in.
+     * Cancelling and pinning the live value makes each frame's ramp start
+     * from what is actually being heard.
+     */
+    const gain = bed.gain.gain;
+    gain.cancelScheduledValues(now);
+    gain.setValueAtTime(gain.value, now);
+    gain.linearRampToValueAtTime(def.windLevel * (1 + amount * 2.6), now + 0.08);
+
+    // Brighter as it rises: real wind noise gains high end with speed.
+    const cutoff = bed.filter.frequency;
+    cutoff.cancelScheduledValues(now);
+    cutoff.setValueAtTime(cutoff.value, now);
+    cutoff.linearRampToValueAtTime(def.bedFrequency * (1 + amount * 1.5), now + 0.08);
+  }
+
   private startBed(biome: BiomeId): void {
     const context = this.synth.ctx;
     const buses = this.synth.buses;

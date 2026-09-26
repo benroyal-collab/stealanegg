@@ -90,6 +90,15 @@ export interface LoopRuntime {
   snatchAlarmAt: Vec2 | null;
   /** How close the nearest pursuer is, 0 (clear) to 1 (breathing down your neck). */
   pursuitPressure: number;
+  /**
+   * World bearing from the player to the nearest pursuer, in radians.
+   *
+   * Published so the HUD can point at a guardian the player cannot see. A
+   * threat behind you that you have no way to locate is not tension, it is
+   * just an unfair surprise, and an eight year old has no camera discipline
+   * to fall back on.
+   */
+  pursuitBearing: number;
   cooldowns: Record<ToolId, number>;
 }
 
@@ -188,6 +197,7 @@ export function createLoopRuntime(biome: BiomeId, nests: Nest[]): LoopRuntime {
     threat: 'calm',
     snatchAlarmAt: null,
     pursuitPressure: 0,
+    pursuitBearing: 0,
     cooldowns: { seedPouch: 0, sleepyBerries: 0, whistle: 0 },
   };
 }
@@ -271,6 +281,7 @@ export function stepLoop(
     responders.length = Math.min(responders.length, CHASE.snatchAlarmMaxResponders);
   }
   let pressure = 0;
+  let pressureBearing = runtime.pursuitBearing;
 
   for (const guardian of runtime.guardians) {
     const toPlayer = {
@@ -368,8 +379,17 @@ export function stepLoop(
      * actually is instead of each guessing.
      */
     if (result.state === 'chase' || result.state === 'giveUp') {
-      const near = 1 - (distance - GUARDIAN.catchRadius) / CHASE.pressureFalloffMetres;
-      pressure = Math.max(pressure, Math.min(1, Math.max(0, near)));
+      const near = Math.min(
+        1,
+        Math.max(0, 1 - (distance - GUARDIAN.catchRadius) / CHASE.pressureFalloffMetres),
+      );
+      if (near > pressure) {
+        pressure = near;
+        pressureBearing = Math.atan2(
+          guardian.position.x - input.playerPosition.x,
+          guardian.position.z - input.playerPosition.z,
+        );
+      }
     }
 
     // --- the catch ---------------------------------------------------------
@@ -406,6 +426,7 @@ export function stepLoop(
    * that plays whether the guardian is two metres away or twenty.
    */
   runtime.pursuitPressure = pressure;
+  runtime.pursuitBearing = pressureBearing;
 
   // --- rivals --------------------------------------------------------------
   const world = {

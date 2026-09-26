@@ -216,6 +216,7 @@ export function BiomeRuntime({
 
     // One number, read by the camera, the solver, the post chain and the mix.
     playerRef.pursuitPressure = rt.pursuitPressure;
+    playerRef.pursuitBearing = rt.pursuitBearing;
 
     // --- interaction ---------------------------------------------------------
     const station = nearestStation(position);
@@ -240,6 +241,11 @@ export function BiomeRuntime({
       speed: playerRef.speed,
       inWater: playerRef.inWater,
       biome,
+      jumped: playerRef.justJumped,
+      landed: playerRef.justLanded,
+      vaulted: playerRef.justVaulted,
+      slid: playerRef.justSlid,
+      pursuitPressure: rt.pursuitPressure,
     });
 
     // The HUD needs to know what pressing Grab would do. Only push a change
