@@ -8,10 +8,10 @@
  * distinct silhouette and a big icon on a signboard.
  */
 
-import { CuboidCollider, RigidBody } from '@react-three/rapier';
+import { CuboidCollider, CylinderCollider, RigidBody } from '@react-three/rapier';
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
-import { MathUtils, MeshStandardMaterial, type Group, type Mesh } from 'three';
+import { MathUtils, MeshStandardMaterial, type BufferGeometry, type Group } from 'three';
 import { EGG, WORLD } from '../../data/balance';
 import type { OwnedCreature } from '../../sim/types';
 import { requireSpecies } from '../../data/creatures';
@@ -19,7 +19,18 @@ import { eggGeometry } from '../entities/eggMesh';
 import { useEggMaterial } from '../entities/EggEntity';
 import type { EggInIncubator } from '../../sim/types';
 import { CreatureInHabitat } from '../entities/CreatureInHabitat';
-import { fenceGeometry } from './fenceGeometry';
+import {
+  INCUBATOR_NEST_Y,
+  SIGN_HEIGHT,
+  breedingGeometry,
+  guideGeometry,
+  incubatorGeometry,
+  penGeometry,
+  storeGeometry,
+  trackGeometry,
+} from './stationMesh';
+import { iconBadgeTexture } from '../materials/iconTexture';
+import type { IconName } from '../../ui/iconPaths';
 import { groundAlbedo, microNormal, roughnessMap } from '../materials/proceduralTextures';
 
 /** The visible clearing is the safe zone the sim enforces; one number for both. */
@@ -36,18 +47,15 @@ function shade(hex: string, factor: number): string {
 export interface SanctuaryProps {
   groundY: number;
   /**
-   * The biome's exposed-soil colour -- its `cliffColour`, not its surface.
+   * The biome's trodden-earth colour, `terrain.pathColour`.
    *
    * A trodden clearing is the ground with the surface worn off it, so it
-   * should look like what is *under* the grass. Two wrong answers were tried
-   * first: one fixed brown, which read as a patch pasted onto the Dunes' pale
-   * sand; then the biome's own surface colour darkened, which made Whisper
-   * Glade's clearing dark green and it vanished into the lawn entirely -- the
-   * sanctuary stopped reading as somewhere people are.
-   *
-   * The soil colour gives brown earth under the Glade's grass, grey-green
-   * under Mirrormere's, and warm sand in the Dunes, which is right in all
-   * three.
+   * should look like what is *under* the grass. Three wrong answers were
+   * tried first: one fixed brown, which read as a patch pasted onto the
+   * Dunes' pale sand; the biome's own surface colour darkened, which made
+   * Whisper Glade's clearing dark green so it vanished into the lawn; and
+   * the cliff colour darkened, which was right in hue but came out the grey
+   * of tarmac under a low warm sun.
    */
   soil: string;
   incubator: EggInIncubator | null;
@@ -113,9 +121,9 @@ export function Sanctuary({
    * about one texel of variation and looks exactly as flat as a solid fill.
    */
   const clearingMaterial = useMemo(() => {
-    // Darker and a touch less saturated than the surrounding soil: the same
-    // earth, walked on.
-    const albedo = groundAlbedo(`sanctuary-${soil}`, shade(soil, 0.84), shade(soil, 1.1));
+    // A gentle spread either side of the path colour, so it is mottled
+    // rather than painted.
+    const albedo = groundAlbedo(`sanctuary-${soil}`, shade(soil, 0.88), shade(soil, 1.08));
     albedo.repeat.set(9, 9);
     const rough = roughnessMap(`sanctuary-${soil}`, 0.94, 0.12);
     rough.repeat.set(9, 9);
@@ -134,6 +142,42 @@ export function Sanctuary({
   }, [soil]);
 
   useEffect(() => () => clearingMaterial.dispose(), [clearingMaterial]);
+
+  /*
+   * Every building shares one material; colour rides on the vertices. The
+   * geometries are built once per visit and shared -- all the pens use the
+   * same one.
+   */
+  const material = useMemo(
+    () =>
+      new MeshStandardMaterial({
+        vertexColors: true,
+        roughness: 0.9,
+        roughnessMap: roughnessMap('station', 0.9, 0.1, 128),
+      }),
+    [],
+  );
+  const geometries = useMemo(
+    () => ({
+      incubator: incubatorGeometry(),
+      store: storeGeometry(),
+      guide: guideGeometry(),
+      breeding: breedingGeometry(),
+      track: trackGeometry(),
+      pen: penGeometry(),
+    }),
+    [],
+  );
+  useEffect(
+    () => () => {
+      material.dispose();
+      const { incubator: inc, ...rest } = geometries;
+      inc.body.dispose();
+      inc.glow.dispose();
+      for (const geometry of Object.values(rest)) geometry.dispose();
+    },
+    [material, geometries],
+  );
 
   const habitatPositions = useMemo(() => {
     // A gentle arc in front of the sanctuary, so the collection is the first
@@ -179,100 +223,152 @@ export function Sanctuary({
         position={STATIONS[0]!.position}
         contents={incubator}
         highlighted={activeStation === 'incubator'}
+        geometry={geometries.incubator}
+        material={material}
       />
-      <Hut
+      <Building
         position={STATIONS[1]!.position}
-        colour="#a8683c"
-        icon="coin"
+        geometry={geometries.store}
+        material={material}
+        icon="shop"
+        signHeight={SIGN_HEIGHT.shop}
         highlighted={activeStation === 'shop'}
-      />
-      <Hut
+      >
+        <CuboidCollider args={[1.0, 1.0, 0.62]} position={[0, 1.0, 0.05]} />
+        <CuboidCollider args={[1.42, 0.3, 0.24]} position={[0, 0.3, 0.42]} />
+      </Building>
+      <Building
         position={STATIONS[2]!.position}
-        colour="#4c7ba8"
-        icon="book"
+        geometry={geometries.guide}
+        material={material}
+        icon="guide"
+        signHeight={SIGN_HEIGHT.guide}
         highlighted={activeStation === 'guide'}
-      />
-      <Hut
+      >
+        <CuboidCollider args={[0.95, 0.9, 0.9]} position={[0, 0.9, 0]} />
+      </Building>
+      <Building
         position={STATIONS[3]!.position}
-        colour="#7a5a9a"
-        icon="fuse"
+        geometry={geometries.breeding}
+        material={material}
+        icon="breeding"
+        signHeight={SIGN_HEIGHT.breeding}
         highlighted={activeStation === 'breeding'}
-      />
-      <TrainingTrack position={STATIONS[4]!.position} highlighted={activeStation === 'track'} />
+      >
+        <CylinderCollider args={[0.7, 0.92]} position={[0, 0.7, 0]} />
+      </Building>
+      <Building
+        position={STATIONS[4]!.position}
+        geometry={geometries.track}
+        material={material}
+        icon="track"
+        signHeight={SIGN_HEIGHT.track}
+        highlighted={activeStation === 'track'}
+      >
+        <CuboidCollider args={[1.0, 0.3, 0.5]} position={[0, 0.3, 0]} />
+      </Building>
 
       {habitatPositions.map((position, slot) => {
         const occupant = creatures.find((c) => c.slot === slot) ?? null;
-        return <Habitat key={slot} position={position} occupant={occupant} />;
+        return (
+          <Habitat
+            key={slot}
+            position={position}
+            occupant={occupant}
+            geometry={geometries.pen}
+            material={material}
+          />
+        );
       })}
     </group>
   );
+}
+
+/** Turn a building at this position to face the middle of the clearing. */
+function facingCentre(position: readonly [number, number, number]): number {
+  return Math.atan2(-position[0], -position[2]);
 }
 
 function Incubator({
   position,
   contents,
   highlighted,
+  geometry,
+  material,
 }: {
   position: readonly [number, number, number];
   contents: EggInIncubator | null;
   highlighted: boolean;
+  geometry: { body: BufferGeometry; glow: BufferGeometry };
+  material: MeshStandardMaterial;
 }): React.ReactElement {
-  const glow = useRef<Mesh>(null);
   const eggGroup = useRef<Group>(null);
+
+  // The nest lining and the lamp bulb share a warm emissive that rises as
+  // the egg gets closer to hatching.
+  const glowMaterial = useMemo(
+    () =>
+      new MeshStandardMaterial({
+        vertexColors: true,
+        emissive: '#ff8a3a',
+        emissiveIntensity: 0.2,
+        roughness: 0.6,
+      }),
+    [],
+  );
+  useEffect(() => () => glowMaterial.dispose(), [glowMaterial]);
 
   const ready = contents !== null && contents.remaining <= 0;
   const progress = contents === null ? 0 : 1 - contents.remaining / Math.max(contents.total, 0.001);
 
   useFrame((state, delta) => {
-    if (glow.current !== null) {
-      const material = glow.current.material as { emissiveIntensity?: number };
-      if (material.emissiveIntensity !== undefined) {
-        // Warmth rises as the egg gets closer to hatching. Slow on purpose:
-        // nothing in this game pulses fast enough to bother anyone.
-        const target =
-          0.2 + progress * 1.4 + (ready ? Math.sin(state.clock.elapsedTime * 1.6) * 0.3 : 0);
-        material.emissiveIntensity = MathUtils.damp(material.emissiveIntensity, target, 4, delta);
-      }
-    }
+    // Warmth rises as the egg gets closer to hatching. Slow on purpose:
+    // nothing in this game pulses fast enough to bother anyone.
+    const target =
+      0.2 + progress * 1.4 + (ready ? Math.sin(state.clock.elapsedTime * 1.6) * 0.3 : 0);
+    glowMaterial.emissiveIntensity = MathUtils.damp(
+      glowMaterial.emissiveIntensity,
+      target,
+      4,
+      delta,
+    );
     if (eggGroup.current !== null && contents !== null) {
       // A wobble that grows as it gets close. This is the anticipation.
       const wobble = Math.sin(state.clock.elapsedTime * (2 + progress * 5)) * 0.06 * progress;
       eggGroup.current.rotation.z = wobble;
-      eggGroup.current.position.y = 0.72 + Math.abs(wobble) * 0.4;
+      eggGroup.current.position.y = EGG_REST_Y + Math.abs(wobble) * 0.4;
     }
   });
 
   return (
     <group position={[position[0], position[1], position[2]]}>
+      {/*
+        Unrotated, unlike the other stations: the incubator sits beside the
+        walk to the first nest, and a box turned to face the centre would
+        swing a corner into that lane.
+      */}
       <RigidBody type="fixed" colliders={false}>
         <CuboidCollider args={[0.75, 0.45, 0.6]} position={[0, 0.45, 0]} />
       </RigidBody>
 
-      {/* Warm stone base. */}
-      <mesh position={[0, 0.28, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[0.78, 0.9, 0.56, 10]} />
-        <meshStandardMaterial color="#8a7a66" roughness={0.9} />
-      </mesh>
-      <mesh ref={glow} position={[0, 0.58, 0]} castShadow>
-        <cylinderGeometry args={[0.6, 0.68, 0.14, 10]} />
-        <meshStandardMaterial
-          color="#c98a4a"
-          emissive="#ff8a3a"
-          emissiveIntensity={0.2}
-          roughness={0.65}
-        />
-      </mesh>
+      <group rotation={[0, facingCentre(position), 0]}>
+        <mesh geometry={geometry.body} material={material} castShadow receiveShadow />
+        <mesh geometry={geometry.glow} material={glowMaterial} />
+      </group>
 
       {contents !== null ? (
-        <group ref={eggGroup} position={[0, 0.72, 0]}>
+        <group ref={eggGroup} position={[0, EGG_REST_Y, 0]}>
           <IncubatorEgg contents={contents} />
         </group>
       ) : null}
 
-      <Signboard icon="egg-warm" highlighted={highlighted} height={1.5} />
+      <Signboard icon="incubator" highlighted={highlighted} height={SIGN_HEIGHT.incubator} />
     </group>
   );
 }
+
+/** Where a waiting egg sits: its centre, half an egg above the nest lining. */
+const EGG_REST_Y = INCUBATOR_NEST_Y + 0.16;
 
 function IncubatorEgg({ contents }: { contents: EggInIncubator }): React.ReactElement {
   const material = useEggMaterial(contents.roll);
@@ -283,69 +379,36 @@ function IncubatorEgg({ contents }: { contents: EggInIncubator }): React.ReactEl
   return <mesh geometry={geometry} material={material} castShadow />;
 }
 
-function Hut({
+/**
+ * One station building, turned to face the centre, with its colliders and a
+ * sign. The colliders are children so they turn with the building.
+ */
+function Building({
   position,
-  colour,
+  geometry,
+  material,
   icon,
+  signHeight,
   highlighted,
+  children,
 }: {
   position: readonly [number, number, number];
-  colour: string;
-  icon: string;
+  geometry: BufferGeometry;
+  material: MeshStandardMaterial;
+  icon: IconName;
+  signHeight: number;
   highlighted: boolean;
+  children: React.ReactNode;
 }): React.ReactElement {
   return (
     <group position={[position[0], position[1], position[2]]}>
-      <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[0.95, 0.9, 0.95]} position={[0, 0.9, 0]} />
-      </RigidBody>
-      <mesh position={[0, 0.75, 0]} castShadow receiveShadow>
-        <boxGeometry args={[1.8, 1.5, 1.8]} />
-        <meshStandardMaterial color="#c4a882" roughness={0.88} />
-      </mesh>
-      <mesh position={[0, 1.72, 0]} rotation={[0, Math.PI / 4, 0]} castShadow>
-        <coneGeometry args={[1.55, 0.85, 4]} />
-        <meshStandardMaterial color={colour} roughness={0.8} />
-      </mesh>
-      <Signboard icon={icon} highlighted={highlighted} height={2.5} />
-    </group>
-  );
-}
-
-function TrainingTrack({
-  position,
-  highlighted,
-}: {
-  position: readonly [number, number, number];
-  highlighted: boolean;
-}): React.ReactElement {
-  return (
-    <group position={[position[0], position[1], position[2]]}>
-      <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[1.1, 0.3, 0.35]} position={[0, 0.3, 0]} />
-      </RigidBody>
-      {/* Two hurdles and a strip of track. Reads as "go faster" instantly. */}
-      <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[2.4, 1.2]} />
-        <meshStandardMaterial color="#b06a4a" roughness={0.95} />
-      </mesh>
-      {[-0.6, 0.6].map((x) => (
-        <group key={x} position={[x, 0, 0]}>
-          <mesh position={[0, 0.3, -0.35]} castShadow>
-            <boxGeometry args={[0.07, 0.6, 0.07]} />
-            <meshStandardMaterial color="#e8e2d4" roughness={0.7} />
-          </mesh>
-          <mesh position={[0, 0.3, 0.35]} castShadow>
-            <boxGeometry args={[0.07, 0.6, 0.07]} />
-            <meshStandardMaterial color="#e8e2d4" roughness={0.7} />
-          </mesh>
-          <mesh position={[0, 0.56, 0]} castShadow>
-            <boxGeometry args={[0.06, 0.06, 0.78]} />
-            <meshStandardMaterial color="#e8e2d4" roughness={0.7} />
-          </mesh>
-        </group>
-      ))}
-      <Signboard icon="boot-run" highlighted={highlighted} height={1.4} />
+      <group rotation={[0, facingCentre(position), 0]}>
+        <RigidBody type="fixed" colliders={false}>
+          {children}
+        </RigidBody>
+        <mesh geometry={geometry} material={material} castShadow receiveShadow />
+      </group>
+      <Signboard icon={icon} highlighted={highlighted} height={signHeight} />
     </group>
   );
 }
@@ -353,24 +416,20 @@ function TrainingTrack({
 function Habitat({
   position,
   occupant,
+  geometry,
+  material,
 }: {
   position: [number, number, number];
   occupant: OwnedCreature | null;
+  geometry: BufferGeometry;
+  material: MeshStandardMaterial;
 }): React.ReactElement {
   return (
     <group position={position}>
-      {/*
-        A low fence ring: six posts joined by a rail, baked into one shared
-        geometry. See fenceGeometry.ts for why -- eight meshes a pen is four
-        times the draw calls this needs.
-      */}
-      <mesh geometry={fenceGeometry()} castShadow receiveShadow>
-        <meshStandardMaterial color="#8a7048" roughness={0.9} />
-      </mesh>
-      <mesh position={[0, 0.015, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <circleGeometry args={[1.2, 18]} />
-        <meshStandardMaterial color="#6f7f4a" roughness={0.95} />
-      </mesh>
+      {/* The gate faces the centre, so every pen opens onto the clearing. */}
+      <group rotation={[0, facingCentre(position), 0]}>
+        <mesh geometry={geometry} material={material} castShadow receiveShadow />
+      </group>
 
       {occupant !== null ? (
         <CreatureInHabitat
@@ -384,25 +443,28 @@ function Habitat({
 }
 
 /**
- * A signboard with a shape on it.
+ * A round sign carrying the station's icon -- the same picture the HUD uses
+ * for the same place, so a child learns one from the other.
  *
  * Reading age eight means every station is labelled with a picture first and
  * a word second, and the word only appears once the player is close enough
- * for the HUD prompt to show.
+ * for the HUD prompt to show. The sign grows when the station is the one
+ * that pressing Grab would use.
  */
 function Signboard({
   icon,
   highlighted,
   height,
 }: {
-  icon: string;
+  icon: IconName;
   highlighted: boolean;
   height: number;
 }): React.ReactElement {
   const board = useRef<Group>(null);
+  const texture = useMemo(() => iconBadgeTexture(icon), [icon]);
   useFrame((state, delta) => {
     if (board.current === null) return;
-    const target = highlighted ? 1.18 : 1;
+    const target = highlighted ? 1.2 : 1;
     board.current.scale.setScalar(MathUtils.damp(board.current.scale.x, target, 10, delta));
     board.current.quaternion.copy(state.camera.quaternion);
   });
@@ -410,60 +472,15 @@ function Signboard({
   return (
     <group ref={board} position={[0, height, 0]}>
       <mesh>
-        <circleGeometry args={[0.32, 20]} />
-        <meshBasicMaterial color={highlighted ? '#fff3d0' : '#e0d6bc'} toneMapped={false} />
+        <planeGeometry args={[0.78, 0.78]} />
+        <meshBasicMaterial
+          map={texture}
+          transparent
+          alphaTest={0.5}
+          color={highlighted ? '#ffffff' : '#e2dccb'}
+          toneMapped={false}
+        />
       </mesh>
-      <StationIcon icon={icon} />
     </group>
   );
-}
-
-function StationIcon({ icon }: { icon: string }): React.ReactElement {
-  const colour = '#3a3226';
-  switch (icon) {
-    case 'coin':
-      return (
-        <mesh position={[0, 0, 0.01]}>
-          <ringGeometry args={[0.09, 0.17, 16]} />
-          <meshBasicMaterial color={colour} toneMapped={false} />
-        </mesh>
-      );
-    case 'book':
-      return (
-        <mesh position={[0, 0, 0.01]}>
-          <planeGeometry args={[0.26, 0.2]} />
-          <meshBasicMaterial color={colour} toneMapped={false} />
-        </mesh>
-      );
-    case 'fuse':
-      return (
-        <group position={[0, 0, 0.01]}>
-          {[-0.09, 0, 0.09].map((x, i) => (
-            <mesh key={i} position={[x, i === 1 ? 0.06 : -0.04, 0]}>
-              <circleGeometry args={[0.055, 12]} />
-              <meshBasicMaterial color={colour} toneMapped={false} />
-            </mesh>
-          ))}
-        </group>
-      );
-    case 'boot-run':
-      return (
-        <group position={[0, 0, 0.01]}>
-          {[0, 1, 2].map((i) => (
-            <mesh key={i} position={[-0.12 + i * 0.12, -0.02 + i * 0.03, 0]}>
-              <planeGeometry args={[0.07, 0.02]} />
-              <meshBasicMaterial color={colour} toneMapped={false} />
-            </mesh>
-          ))}
-        </group>
-      );
-    case 'egg-warm':
-    default:
-      return (
-        <mesh position={[0, 0, 0.01]} scale={[0.75, 1, 1]}>
-          <circleGeometry args={[0.15, 16]} />
-          <meshBasicMaterial color={colour} toneMapped={false} />
-        </mesh>
-      );
-  }
 }

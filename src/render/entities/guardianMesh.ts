@@ -34,12 +34,9 @@ import {
   CatmullRomCurve3,
   ConeGeometry,
   CylinderGeometry,
-  Euler,
   Group,
-  Matrix4,
   Mesh,
   MeshStandardMaterial,
-  Quaternion,
   SphereGeometry,
   TubeGeometry,
   Vector3,
@@ -47,9 +44,8 @@ import {
   type BufferGeometry,
   type Material,
 } from 'three';
-import { roughen } from '../materials/roughen';
 import { roughnessMap } from '../materials/proceduralTextures';
-import { mergeColouredParts, type ColouredPart } from './mergeParts';
+import { limb, lumpy, mergeColouredParts, part, type ColouredPart, type V3 } from './mergeParts';
 
 export type GuardianSpecies = 'hen' | 'swan' | 'scorpion';
 
@@ -91,61 +87,6 @@ export interface GuardianRig {
 /* ------------------------------------------------------------------------ */
 /* Placement helpers                                                         */
 /* ------------------------------------------------------------------------ */
-
-type V3 = readonly [number, number, number];
-
-const scratchEuler = new Euler();
-const scratchQuat = new Quaternion();
-const scratchPos = new Vector3();
-const scratchScale = new Vector3();
-
-/**
- * Position, rotate and scale one primitive within its joint.
- *
- * Rotation is applied yaw-last ('YXZ'), so `[PI/2, yaw, 0]` means "lay it
- * along +Z, then turn it" -- which is what nearly every toe, finger and
- * feather here wants.
- */
-function part(
-  geometry: BufferGeometry,
-  colour: string,
-  position: V3,
-  rotation: V3 = [0, 0, 0],
-  scale: V3 = [1, 1, 1],
-): ColouredPart {
-  scratchEuler.set(rotation[0], rotation[1], rotation[2], 'YXZ');
-  scratchQuat.setFromEuler(scratchEuler);
-  const matrix = new Matrix4().compose(
-    scratchPos.set(position[0], position[1], position[2]),
-    scratchQuat,
-    scratchScale.set(scale[0], scale[1], scale[2]),
-  );
-  return { geometry, colour, matrix };
-}
-
-const UP = new Vector3(0, 1, 0);
-
-/** A capsule from one point to another: a leg segment, a claw arm. */
-function limb(from: V3, to: V3, radius: number, colour: string): ColouredPart {
-  const a = new Vector3(...from);
-  const b = new Vector3(...to);
-  const dir = b.clone().sub(a);
-  const length = dir.length();
-  const quat = new Quaternion().setFromUnitVectors(UP, dir.normalize());
-  const matrix = new Matrix4().compose(a.add(b).multiplyScalar(0.5), quat, new Vector3(1, 1, 1));
-  return {
-    geometry: new CapsuleGeometry(radius, Math.max(0.001, length - radius), 3, 8),
-    colour,
-    matrix,
-  };
-}
-
-/** A sphere with its surface broken up, so it reads as feathers or shell. */
-function lumpy(radius: number, seed: number, amount: number, w = 16, h = 12): SphereGeometry {
-  const geometry = new SphereGeometry(radius, w, h);
-  roughen(geometry, seed, amount);
-  return geometry;
-}
 
 /**
  * A tube that narrows along its length. A swan's neck is thick where it meets

@@ -90,6 +90,16 @@ export interface BiomeTerrain {
   readonly groundColourMid: string;
   readonly groundColourHigh: string;
   readonly cliffColour: string;
+  /**
+   * Trodden earth, for the sanctuary clearing.
+   *
+   * The clearing used to take the cliff colour, which is right in hue --
+   * what is under the grass -- but those are cool, desaturated rock tones,
+   * and under a low warm sun Whisper Glade's clearing came out the grey of a
+   * car park. Packed earth is warmer and lighter than rock, so it gets its
+   * own colour.
+   */
+  readonly pathColour: string;
 }
 
 export interface FoliageLayer {
@@ -200,6 +210,7 @@ export const BIOME_DEFS: Record<BiomeId, BiomeDef> = {
       groundColourMid: '#7f8a52',
       groundColourHigh: '#a39c68',
       cliffColour: '#8a7f6c',
+      pathColour: '#a4825a',
     },
     foliage: [
       {
@@ -332,6 +343,7 @@ export const BIOME_DEFS: Record<BiomeId, BiomeDef> = {
       groundColourMid: '#84906f',
       groundColourHigh: '#a5a98c',
       cliffColour: '#828a82',
+      pathColour: '#9e9682',
     },
     foliage: [
       {
@@ -452,6 +464,7 @@ export const BIOME_DEFS: Record<BiomeId, BiomeDef> = {
       groundColourMid: '#ddb47a',
       groundColourHigh: '#f0d4a4',
       cliffColour: '#a8845c',
+      pathColour: '#c89e6a',
     },
     foliage: [
       {
