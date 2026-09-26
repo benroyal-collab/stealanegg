@@ -655,6 +655,20 @@ on screen, and a third bar on a laptop-height window reaches the middle of the
 frame where the player is. Short screens get tighter padding, never smaller
 text.
 
+### Captions: the warning outlasts the news
+
+Capping the track at two lines had a cost the chase gate found. On a snatch
+under a guardian's nose, the chase warning is raised a hair before the egg
+caption on the same frame, and the tumble follows half a second later. Evicting
+strictly by age dropped "A guardian is chasing you!" — the one line a player
+who cannot hear the sting needs. Danger cues are now marked `urgent`, and when
+the track is full the oldest ordinary line goes first.
+
+The gate also turned up two cues firing for that one moment: the threat-level
+change played "A guardian has spotted you!" and the loop's chase event played
+"A guardian is chasing you!", two sounds and two captions for one event. The
+first was the older duplicate and has been retired.
+
 ## The guardians, rebuilt as animals
 
 The guardians came out of the same parametric builder as the collectable
@@ -706,6 +720,86 @@ with more on screen than before.
 The collectable creatures still use the parametric builder. They are small,
 seen close up in the habitats, and a data-driven species list is worth more
 there than a bespoke silhouette.
+
+## The sanctuary, rebuilt as a place
+
+After the guardians, the most-seen programmer art was the sanctuary. It is the
+first thing on screen every session and the place every heist ends. Four of the
+five stations were the same beige box under a four-sided cone, told apart only
+by roof colour. The fifth was an orange disc on a stump. Each had a white disc
+floating over it with a glyph built from two or three primitives, and at any
+distance those read as a disc with a smudge. The clearing under them was
+tarmac-grey in the Glade.
+
+Each station is now something you would recognise without its sign
+(`src/render/world/stationMesh.ts`):
+
+- **Incubator:** a straw nest on a ring of fieldstones under a heat lamp. The
+  nest lining and the bulb share the emissive that warms as the egg nears
+  hatching.
+- **Ranger Store:** a market stall with a striped awning, goods on the shelves,
+  a crate and a barrel.
+- **Field Guide:** a log cabin with a chimney and an open book on a lectern.
+- **Breeding Hut:** a round whitewashed hut under a shaggy thatch, with flower
+  pots by an arched door.
+- **Training Track:** a running strip with striped hurdles and a chequered
+  finish arch.
+- **Pens:** a patch of grass, a post-and-rail fence with a gate facing the
+  clearing, a little red-roofed hutch and a water bowl. An empty pen has to
+  look like somewhere a creature would want to live, because an empty pen is
+  the reason to go and fetch another egg. The first hutch was a lean-to — a
+  slab on four legs — and it read as a picnic table.
+
+Every building turns to face the centre of the clearing. Their colliders turn
+with them, except the incubator's. The incubator sits beside the walk to nest
+zero, and a box turned to face the centre would swing a corner into that lane.
+
+The signs are now the HUD's own icons, drawn from the same path data
+(`ui/iconPaths.ts`) onto a canvas badge, so the bag on the store is the bag in
+the prompt. That is one draw per sign instead of up to four.
+
+Each station is one vertex-coloured buffer on one shared material. The five
+old huts cost two or three draws each before their signs.
+
+`tests/unit/stations.test.ts` asserts:
+
+- every sign clears its own roof — the first draft of the incubator's sign sat
+  on its lamp arm, and the test caught it;
+- the five silhouettes differ;
+- nothing is pure black or white;
+- every pen has a gate.
+
+With the guardians and the stations both baked, High is at 261 draw calls,
+down from 373 at the start of the pass, and Low at 126. Triangles rose from
+793k to 876k at High, well inside the 1.2M budget: this is detail that used to
+cost draws and now costs only vertices.
+
+### The clearing is earth, not tarmac
+
+The clearing was coloured from the biome's cliff colour. The hue was right —
+it is what lies under the grass — but cliff colours are cool, desaturated rock,
+and under a low warm sun the Glade's clearing came out car-park grey. Each biome
+now has a `pathColour` for trodden earth, which is warmer and lighter than rock.
+
+### Trees were growing through the pens
+
+Foliage was kept out of only the middle 5.5 m of an 11 m clearing: at 14 m it
+had swallowed every plant visible from the spawn. So birches stood in the
+walkway between stations, and one grew straight up through a habitat pen.
+Exclusion zones can now be `largeOnly`. Trees, rocks and ruins are kept out of
+the whole clearing, while grass and ferns still fringe it. The scatter and its
+collider twin share one `isExcluded`, so they cannot disagree about where a
+tree stands.
+
+### Bark on the leaves
+
+Every tree is one mesh and one material, and the bark normal map was applied
+to all of it. Its vertical grain, wrapped round a ball of leaves, drew wavy
+zebra stripes across every canopy in the Glade — clearly visible in every
+1080p shot, and the single most "procedural" thing on screen. The shader now
+restores the unperturbed normal on the leaf part of any tree with a trunk, so
+canopies keep the faceting of their own geometry, which is what reads as
+clumps of leaves.
 
 ## Performance — measuring the budget properly
 
