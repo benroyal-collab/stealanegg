@@ -21,6 +21,15 @@ export interface PlayerRuntime {
   inWater: boolean;
   /** How far away a guardian could hear us this frame, in metres. */
   noiseRadius: number;
+  /**
+   * Top speed the solver is currently allowed, carry penalty included.
+   *
+   * Published here because pursuit speed is a fraction of it: a guardian has
+   * to know how fast the thing it is chasing can actually go, and reading it
+   * off the live solver is the only way that stays true through upgrades,
+   * carry penalties and difficulty.
+   */
+  pace: number;
   cameraYaw: number;
   justLanded: boolean;
   justJumped: boolean;
@@ -40,6 +49,15 @@ export interface PlayerRuntime {
   shakeRequest: number;
   /** Seconds of tumble left, so the avatar knows to fall over. */
   tumbleRemaining: number;
+  /**
+   * How close the nearest pursuer is, 0 (clear) to 1 (on your heels).
+   *
+   * One number, published by the loop and read by the camera, the movement
+   * solver, the post chain and the audio director -- so the fright, the
+   * adrenaline and the music always agree about how much danger there
+   * actually is.
+   */
+  pursuitPressure: number;
 }
 
 export const playerRef: PlayerRuntime = {
@@ -52,6 +70,7 @@ export const playerRef: PlayerRuntime = {
   grounded: false,
   inWater: false,
   noiseRadius: 0,
+  pace: 0,
   cameraYaw: 0,
   justLanded: false,
   justJumped: false,
@@ -62,4 +81,5 @@ export const playerRef: PlayerRuntime = {
   state: null,
   shakeRequest: 0,
   tumbleRemaining: 0,
+  pursuitPressure: 0,
 };

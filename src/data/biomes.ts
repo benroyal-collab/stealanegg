@@ -5,7 +5,37 @@
  * different places rather than three tints of the same place.
  */
 
+import { GUARDIAN } from './balance';
 import type { BiomeId, GuardianConfig } from '../sim/types';
+
+/**
+ * A guardian, described by what makes it different.
+ *
+ * The rhythm of a chase -- how fast it reacts, how long it commits, how
+ * quickly it re-arms -- is the feel of the whole game, so it lives in one
+ * place and every biome shares it. Only perception and aggression vary.
+ *
+ * This is not tidiness. Each biome used to spell out its own `alertSeconds`,
+ * `giveUpSeconds` and `cooldownSeconds`, and they had quietly drifted away
+ * from the values in `balance.ts`: Whisper Glade reacted in 1.5 seconds where
+ * the tuning file said 1.2, so the file everyone reads to understand the game
+ * described a guardian that did not exist.
+ */
+function guardian(
+  distinctive: Pick<
+    GuardianConfig,
+    'visionConeDegrees' | 'visionRange' | 'patrolSpeed' | 'chaseAggression' | 'turnRate'
+  >,
+): GuardianConfig {
+  return {
+    alertSeconds: GUARDIAN.alertSeconds,
+    investigateSeconds: GUARDIAN.investigateSeconds,
+    giveUpSeconds: GUARDIAN.giveUpSeconds,
+    cooldownSeconds: GUARDIAN.cooldownSeconds,
+    drowsySeconds: GUARDIAN.drowsySeconds,
+    ...distinctive,
+  };
+}
 
 export interface BiomeLighting {
   /** Sun elevation and azimuth in degrees. */
@@ -101,18 +131,16 @@ export const BIOME_DEFS: Record<BiomeId, BiomeDef> = {
     incomeRange: [3, 12],
     guardianName: 'Broody Hen',
     guardianBlurb: 'She grumbles a lot but she is slow, and she gives up quickly.',
-    guardian: {
+    guardian: guardian({
       visionConeDegrees: 54,
       visionRange: 14,
-      alertSeconds: 1.5,
-      investigateSeconds: 5,
-      giveUpSeconds: 3,
-      cooldownSeconds: 7,
-      drowsySeconds: 8,
       patrolSpeed: 1.5,
-      chaseSpeed: 4.2,
+      // Slowest pursuer in the game, and still faster than the player's Pace
+      // for the first two seconds. "Slow" here means it turns badly and loses
+      // you at corners, not that it cannot keep up.
+      chaseAggression: 1.0,
       turnRate: 130,
-    },
+    }),
     signatureMechanic: 'Wide sightlines and generous cover. The game teaches itself here.',
     lighting: {
       // Low enough to rake long shadows through the birches, high enough that
@@ -235,18 +263,16 @@ export const BIOME_DEFS: Record<BiomeId, BiomeDef> = {
     incomeRange: [15, 60],
     guardianName: 'Sentinel Swan',
     guardianBlurb: 'Fast in a straight line. Terrible at corners. Use that.',
-    guardian: {
+    guardian: guardian({
       visionConeDegrees: 64,
       visionRange: 20,
-      alertSeconds: 1.1,
-      investigateSeconds: 6,
-      giveUpSeconds: 4,
-      cooldownSeconds: 8,
-      drowsySeconds: 8,
       patrolSpeed: 2.4,
-      chaseSpeed: 7.4,
+      // Turns like a barge (62 deg/sec), so the counterplay is corners and
+      // reeds rather than raw speed. It is allowed to be quicker in a
+      // straight line precisely because it cannot follow you round one.
+      chaseAggression: 1.07,
       turnRate: 62,
-    },
+    }),
     signatureMechanic: 'Water drags at your legs. Reeds cut the Swan line of sight clean.',
     lighting: {
       sunElevation: 21,
@@ -354,18 +380,15 @@ export const BIOME_DEFS: Record<BiomeId, BiomeDef> = {
     incomeRange: [70, 280],
     guardianName: 'Dune Scorpion',
     guardianBlurb: 'It burrows, then pops up ahead of you. Watch the sand.',
-    guardian: {
+    guardian: guardian({
       visionConeDegrees: 58,
       visionRange: 22,
-      alertSeconds: 1.0,
-      investigateSeconds: 7,
-      giveUpSeconds: 5,
-      cooldownSeconds: 9,
-      drowsySeconds: 8,
       patrolSpeed: 2.9,
-      chaseSpeed: 8.6,
+      // The fastest thing in the game, and it corners well. There is nowhere
+      // to hide out here, so the escape has to be won on the flat.
+      chaseAggression: 1.14,
       turnRate: 165,
-    },
+    }),
     signatureMechanic: 'Almost no cover. It hunts by sound, so plan around your own noise.',
     lighting: {
       sunElevation: 28,

@@ -20,6 +20,7 @@ function input(overrides: Partial<MovementInput> = {}): MovementInput {
     cameraYaw: 0,
     sprintHeld: false,
     crouchHeld: false,
+    pursuitPressure: 0,
     jumpPressed: false,
     dt: DT,
     ...overrides,

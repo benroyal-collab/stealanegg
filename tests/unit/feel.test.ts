@@ -31,6 +31,7 @@ function input(o: Partial<MovementInput> = {}): MovementInput {
     cameraYaw: 0,
     sprintHeld: false,
     crouchHeld: false,
+    pursuitPressure: 0,
     jumpPressed: false,
     dt: DT,
     ...o,
@@ -199,7 +200,7 @@ describe('feel metrics', () => {
   it('punches the FOV to within a degree of target inside the configured window', () => {
     const cam = createCameraState();
     const camOut = createCameraOutput();
-    const target = { x: 0, y: 0, z: 0, sprinting: true, crouching: false };
+    const target = { x: 0, y: 0, z: 0, sprinting: true, crouching: false, pursuitPressure: 0 };
     const options = { reducedMotion: true, shakeEnabled: false, distanceBias: 0 };
 
     let t = 0;
@@ -207,7 +208,17 @@ describe('feel metrics', () => {
       stepCamera(cam, target, options, null, DT, camOut);
       t += DT;
     }
-    expect(Math.abs(camOut.fov - CAMERA.fovSprint)).toBeLessThan(1);
+    /*
+     * Measured as a fraction of the travel, not in absolute degrees.
+     *
+     * `fovLerpMs` is defined as the time to close 95% of the gap, so a
+     * one-degree tolerance only ever passed because the punch happened to be
+     * thirteen degrees wide. Widening it to twenty-three for the speed rework
+     * broke the assertion without changing the feel at all -- the curve is
+     * identical, there is simply more of it.
+     */
+    const remaining = Math.abs(camOut.fov - CAMERA.fovSprint) / (CAMERA.fovSprint - CAMERA.fovBase);
+    expect(remaining).toBeLessThan(0.06);
 
     // And it must ease out, not run linearly: most of the travel happens early.
     const half = createCameraState();
@@ -226,7 +237,7 @@ describe('feel metrics', () => {
     const options = { reducedMotion: true, shakeEnabled: false, distanceBias: 0 };
 
     // Teleport the focus target and time the catch-up.
-    const target = { x: 10, y: 0, z: 0, sprinting: false, crouching: false };
+    const target = { x: 10, y: 0, z: 0, sprinting: false, crouching: false, pursuitPressure: 0 };
     let t = 0;
     while (Math.abs(cam.focusX - 10) > 0.1 && t < 2) {
       stepCamera(cam, target, options, null, DT, camOut);

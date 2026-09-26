@@ -71,6 +71,26 @@ export const STAMINA = {
    * sprint/walk stutter every few frames -- the classic bad stamina feel.
    */
   exhaustRecoverFraction: 0.55,
+
+  /**
+   * Adrenaline: how much slower the bar drains while something is chasing you.
+   *
+   * Without this the arithmetic is simply unfair. A guardian pursues for seven
+   * seconds and the bar buys six, so every chase ended with the player walking
+   * and the guardian jogging up behind them -- the escape was lost to a
+   * spreadsheet rather than to a mistake.
+   *
+   * It also puts the game's best sensation where the danger is: you can run
+   * furthest exactly when it matters, which is the opposite of a resource that
+   * punishes you for being in trouble. Scaled by how close the pursuer
+   * actually is, so it is a reward for nerve rather than a free refill.
+   *
+   * 0.75 gives eight seconds of sprint against a seven second pursuit: a full
+   * bar covers exactly one clean escape and nothing more. At 0.45 it gave
+   * thirteen, which deleted the decision -- stamina stopped being a resource
+   * and starting a heist on a half-empty bar stopped being a mistake.
+   */
+  adrenalineDrainMultiplier: 0.75,
 } as const;
 
 export const CAMERA = {
@@ -84,7 +104,35 @@ export const CAMERA = {
   rotationHalfLife: 0.05,
   collisionRadius: 0.28,
   fovBase: 55,
-  fovSprint: 68,
+  /**
+   * Widened from 68. Perceived speed is mostly peripheral flow, not metres
+   * per second -- six metres a second at a 55 degree FOV reads as a jog, and
+   * the same speed at 78 reads as a sprint.
+   */
+  fovSprint: 78,
+  /**
+   * Extra degrees at full pursuit pressure, on top of the sprint FOV.
+   *
+   * The world stretches as something closes on you. Small, because this
+   * stacks with the sprint punch and a camera that lurches is a camera a
+   * child cannot aim.
+   */
+  fovChase: 7,
+  /**
+   * How far the arm pulls back at full pursuit pressure.
+   *
+   * Two things at once: more of the world streams past the edges of the
+   * frame, and -- the point -- the thing chasing you comes into shot. A
+   * pursuer you cannot see is not frightening, it is just a number.
+   */
+  chasePullback: 1.5,
+  /**
+   * Continuous shake while something is on your heels, 0..1 of full shake.
+   *
+   * Deliberately gentle and, like every other shake, suppressed entirely
+   * under reduced motion.
+   */
+  chaseShake: 0.22,
   fovLerpMs: 220,
   handheldAmplitude: 0.0032,
   handheldFrequency: 0.55,
@@ -196,22 +244,139 @@ export const WORLD = {
   spawnCorridorHalfWidth: 2,
 } as const;
 
+/**
+ * The chase, which is the game.
+ *
+ * Playtest, verbatim: "once I'd grabbed an egg I could literally walk back."
+ * That was accurate, and it was not one bad number -- the escape was
+ * structurally absent:
+ *
+ * - Whisper Glade's guardian chased at 4.2 m/s against a 6.0 m/s sprint. It
+ *   could not close the distance even at full commitment, in the one biome
+ *   every child actually played.
+ * - It spent 1.2 seconds in `alert` at a third of walking speed before the
+ *   chase began. By the time it moved, the player was seven metres gone.
+ * - It gave up four seconds after losing sight and then stopped dead --
+ *   `speedFor` returned a literal zero -- before pottering at 1.2 m/s.
+ * - Taking an egg out of a nest alerted nobody at all. The loudest act in the
+ *   game was silent.
+ *
+ * So the chase is rebuilt around two ideas. First, **the snatch is an alarm**:
+ * lifting an egg puts every guardian in earshot straight into pursuit, with no
+ * perception check and no ramp. Second, **pursuit speed is a fraction of the
+ * player's own Pace**, not a fixed number. A guardian that is always just
+ * behind you is thrilling at every Pace level; an absolute speed is either
+ * impossible at level one or irrelevant at level twenty, and this one managed
+ * to be irrelevant immediately.
+ */
+export const CHASE = {
+  /**
+   * Speed as a fraction of the player's *carried* Pace.
+   *
+   * The lunge is above 1.0 on purpose: for the first couple of seconds the
+   * guardian gains, whatever the player does, and the gap closing is the whole
+   * sensation. Sustained sits just under 1.0, so a clean line slowly wins and
+   * a fumbled corner does not.
+   */
+  lungeFraction: 1.12,
+  /**
+   * Flat across every biome, and deliberately not scaled by aggression.
+   *
+   * Aggression multiplies the lunge, which is where a biome's character
+   * lives. If it multiplied this too, Mirrormere's sustained pursuit came out
+   * at 1.006x Pace -- permanently faster than the player, so the only escape
+   * would be a guardian's own give-up timer. That is not a chase, it is a
+   * countdown.
+   *
+   * 0.97 rather than something safer because the arithmetic was checked
+   * rather than guessed: at 0.94 a player who simply held sprint in a
+   * straight line escaped every pursuit in every biome with metres to spare,
+   * which is a formality, not a thrill. At 0.97 the guardian stays glued to
+   * your shoulder and the gap only opens by about eighty centimetres across a
+   * whole pursuit, so whether you get away is decided by the lunge, by how
+   * close it was when the alarm went off, and by whether you clip a tree.
+   */
+  sustainedFraction: 0.97,
+  lungeSeconds: 2.2,
+
+  /**
+   * Lifting an egg wakes every guardian within this radius, instantly.
+   *
+   * Generous, because the alarm is the fun. A nest that can be robbed without
+   * consequence is a pickup, not a heist.
+   */
+  snatchAlarmRadius: 34,
+
+  /**
+   * How long a guardian keeps hunting after losing contact.
+   *
+   * Was four seconds, which meant breaking line of sight ended the run. Seven
+   * keeps the pressure on across a corner, so the escape is a route rather
+   * than a single turn.
+   */
+  pursuitSeconds: 7,
+
+  /**
+   * Speed while hunting a last-known position, as a fraction of Pace.
+   *
+   * The old `giveUp` state returned zero -- the guardian stopped, mid-stride,
+   * the instant it lost you. Nothing reads as "you are safe now" more clearly
+   * than a pursuer standing still, and nothing kills a chase faster.
+   */
+  huntFraction: 0.82,
+
+  /**
+   * Distance over which a pursuer's menace fades, beyond the catch radius.
+   *
+   * One number feeds the camera shake, the danger vignette and the audio mix,
+   * so the fright always matches the real distance. A fixed sting that fires
+   * on "chase started" is the same whether the guardian is two metres behind
+   * you or twenty, and children read that as noise within one run.
+   */
+  pressureFalloffMetres: 12,
+} as const;
+
 export const GUARDIAN = {
   visionConeDegrees: 60,
   visionRange: 18,
   hearing: { sprint: 12, walk: 5, crouch: 0, idle: 0 },
-  alertSeconds: 1.2,
-  investigateSeconds: 6,
-  giveUpSeconds: 4,
+  /**
+   * Barely a beat. This is the double-take before the sprint, not a wind-up:
+   * long enough to read as a reaction, short enough that the player never
+   * gets a free head start for standing in plain sight.
+   */
+  alertSeconds: 0.3,
+  investigateSeconds: 2.5,
+  giveUpSeconds: CHASE.pursuitSeconds,
   /** The short, readable "hmph" beat before it turns around. */
-  giveUpBeatSeconds: 1,
-  cooldownSeconds: 8,
+  giveUpBeatSeconds: 0.6,
+  /**
+   * Short, so the world re-arms fast. A long cooldown is a lull, and a child
+   * who has just escaped wants the next run, not a rest.
+   */
+  cooldownSeconds: 3,
   drowsySeconds: 8,
   drowsySpeedMultiplier: 0.35,
   /** A carried egg is conspicuous: perception radius scales up. */
   carryPerceptionBonus: 1.15,
+  /**
+   * After a catch, how long a guardian in cooldown ignores the player.
+   *
+   * The guaranteed breather: get up, get your bearings, go again. It used to
+   * be derived as half the cooldown, so shortening the cooldown to re-arm the
+   * world faster silently halved the breather too. Naming it keeps the two
+   * decisions separate.
+   */
+  resetWindowSeconds: 1.4,
   catchRadius: 1.35,
-  tumbleSeconds: 3,
+  /**
+   * A stumble, not a sit-down.
+   *
+   * Three seconds face-down is an eternity at eight years old, and the egg is
+   * dropped where you fell -- so the comeback is a scramble worth having
+   * rather than a punishment. Failure still costs time and never progress.
+   */
+  tumbleSeconds: 1.1,
 } as const;
 
 /** Difficulty is a set of multipliers, never a content gate. */

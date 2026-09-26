@@ -113,7 +113,15 @@ export interface GuardianConfig {
   readonly cooldownSeconds: number;
   readonly drowsySeconds: number;
   readonly patrolSpeed: number;
-  readonly chaseSpeed: number;
+  /**
+   * Multiplier on the shared chase fractions in `CHASE`.
+   *
+   * Not an absolute speed. Pursuit is measured against the player's own Pace
+   * so that it stays a chase at every upgrade level -- an absolute number is
+   * either impossible at Pace 6 or irrelevant at Pace 22, and the one this
+   * replaced managed to be irrelevant on the first run.
+   */
+  readonly chaseAggression: number;
   /** How sharply it can change heading, in degrees per second. */
   readonly turnRate: number;
 }

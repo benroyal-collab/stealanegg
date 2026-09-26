@@ -37,6 +37,13 @@ export interface CameraTarget {
   sprinting: boolean;
   /** Crouching lowers the focus point so the player still fills the frame. */
   crouching: boolean;
+  /**
+   * How close the nearest pursuer is, 0..1.
+   *
+   * Widens the lens and pulls the arm back, so the thing chasing you is
+   * actually in shot. The whole scare depends on being able to see it.
+   */
+  pursuitPressure: number;
 }
 
 export interface CameraOptions {
@@ -146,7 +153,9 @@ export function stepCamera(
   state.focusY = damp(state.focusY, target.y + focusHeight, CAMERA.positionHalfLife * 1.6, dt);
   state.focusZ = damp(state.focusZ, target.z, CAMERA.positionHalfLife, dt);
 
-  const wantFov = target.sprinting ? CAMERA.fovSprint : CAMERA.fovBase;
+  const pressure = clamp(target.pursuitPressure, 0, 1);
+  const wantFov =
+    (target.sprinting ? CAMERA.fovSprint : CAMERA.fovBase) + CAMERA.fovChase * pressure;
   state.fov = damp(state.fov, wantFov, FOV_HALF_LIFE, dt);
 
   // Arm direction, from the focus point backwards along yaw/pitch.
@@ -155,7 +164,7 @@ export function stepCamera(
   const dirY = Math.sin(state.pitch);
   const dirZ = Math.cos(state.yaw) * cp;
 
-  const wantDistance = CAMERA.distance + options.distanceBias;
+  const wantDistance = CAMERA.distance + options.distanceBias + CAMERA.chasePullback * pressure;
   let allowed = wantDistance;
   if (trace !== null) {
     const hit = trace(state.focusX, state.focusY, state.focusZ, dirX, dirY, dirZ, wantDistance);
@@ -181,8 +190,17 @@ export function stepCamera(
     posY += (Math.sin(t * 1.37) + Math.sin(t * 0.71)) * amp * 1.4;
   }
 
-  if (options.shakeEnabled && !options.reducedMotion && state.shake > 0.001) {
-    const s = state.shake * state.shake * 0.28;
+  /*
+   * Chase rumble, on top of whatever impact shake is decaying.
+   *
+   * Continuous rather than a one-off hit, because the fright should track how
+   * close the guardian actually is -- a single sting at the start of a chase
+   * says the same thing whether it is two metres behind you or twenty.
+   */
+  const rumble = options.shakeEnabled && !options.reducedMotion ? CAMERA.chaseShake * pressure : 0;
+  const shakeEnergy = Math.max(state.shake, rumble);
+  if (options.shakeEnabled && !options.reducedMotion && shakeEnergy > 0.001) {
+    const s = shakeEnergy * shakeEnergy * 0.28;
     const t = state.time * 42;
     posX += Math.sin(t * 1.7) * s;
     posY += Math.sin(t * 2.3 + 1.1) * s;

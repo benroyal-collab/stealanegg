@@ -15,6 +15,7 @@ import {
   BoxGeometry,
   BufferAttribute,
   BufferGeometry,
+  ConeGeometry,
   CylinderGeometry,
   Float32BufferAttribute,
   IcosahedronGeometry,
@@ -24,6 +25,39 @@ import { hash2D } from '../materials/noise';
 
 export type FoliageKind =
   'birch' | 'pine' | 'fern' | 'grass' | 'reed' | 'rock' | 'palm' | 'cactus' | 'ruin';
+
+/**
+ * Push every vertex along its own normal by a hashed amount.
+ *
+ * The single biggest thing separating "stylised low-poly" from "programmer
+ * art". A canopy built from `SphereGeometry` is a mathematically perfect
+ * ellipsoid, and a forest of perfect ellipsoids reads as placeholder no matter
+ * how well it is lit -- the eye finds the repetition instantly, because
+ * nothing in a wood is ever that smooth.
+ *
+ * Roughening costs no vertices and no draw calls; it just moves the ones that
+ * are already there. Normals are recomputed afterwards so the faceting picks
+ * up the light, which is where the crispness comes from.
+ */
+function roughen(geometry: BufferGeometry, seed: number, amount: number): BufferGeometry {
+  const position = geometry.attributes.position as BufferAttribute | undefined;
+  const normal = geometry.attributes.normal as BufferAttribute | undefined;
+  if (position === undefined || normal === undefined) return geometry;
+
+  for (let i = 0; i < position.count; i++) {
+    // Hash on the vertex's own position, so shared vertices move together and
+    // the surface stays closed rather than splitting into confetti.
+    const px = position.getX(i);
+    const py = position.getY(i);
+    const pz = position.getZ(i);
+    const n = hash2D(Math.round((px + pz) * 97), Math.round(py * 89), seed) - 0.5;
+    const push = 1 + n * amount;
+    position.setXYZ(i, px * push, py * push, pz * push);
+  }
+  position.needsUpdate = true;
+  geometry.computeVertexNormals();
+  return geometry;
+}
 
 /** A cross of quads: the cheapest thing that reads as a leafy clump. */
 function crossBillboard(
@@ -72,7 +106,80 @@ function crossBillboard(
 }
 
 /**
- * A trunk plus a canopy. Used by birch, pine and palm.
+ * A conifer: a trunk with skirts of needles, widest at the bottom.
+ *
+ * Pine used to go through `treeGeometry` like everything else, so a pine was
+ * a birch with smaller spheres. Its own comment said a cone "reads as a
+ * Christmas tree even when it is meant to be a birch" -- true, and exactly
+ * why a pine should have one. Silhouette is how a child tells two woods
+ * apart at fifty metres; colour is not enough, and three biomes built from
+ * the same blob are three biomes that look like one.
+ */
+function coniferGeometry(
+  trunkHeight: number,
+  trunkRadius: number,
+  skirts: { y: number; radius: number; height: number }[],
+  seed: number,
+): BufferGeometry {
+  const parts: { geometry: BufferGeometry; part: number }[] = [];
+  const lean = (hash2D(seed, 3, 11) - 0.5) * 0.1;
+
+  const trunk = new CylinderGeometry(trunkRadius * 0.5, trunkRadius, trunkHeight, 6, 2);
+  trunk.translate(0, trunkHeight / 2, 0);
+  trunk.rotateZ(lean);
+  parts.push({ geometry: trunk, part: 0 });
+
+  skirts.forEach((skirt, i) => {
+    // Open cones, stacked. Six sides is enough at instanced scale and the
+    // hard edges are the point -- a conifer is all silhouette.
+    const cone = new ConeGeometry(skirt.radius, skirt.height, 6, 1);
+    roughen(cone, seed * 17 + i, 0.16);
+    cone.rotateY(hash2D(seed, i, 37) * Math.PI * 2);
+    cone.translate(0, skirt.y + skirt.height * 0.5, 0);
+    cone.rotateZ(lean);
+    parts.push({ geometry: cone, part: 1 });
+  });
+
+  return mergeWithHeights(parts, trunkHeight + (skirts.at(-1)?.y ?? trunkHeight));
+}
+
+/**
+ * A palm: a bare trunk with a crown of drooping fronds.
+ *
+ * Was a single squashed sphere on a stick, which from any distance is a
+ * lollipop. Fronds cost a handful of triangles and are the whole reason a
+ * desert reads as a desert.
+ */
+function palmGeometry(trunkHeight: number, trunkRadius: number, seed: number): BufferGeometry {
+  const parts: { geometry: BufferGeometry; part: number }[] = [];
+  const lean = (hash2D(seed, 5, 13) - 0.5) * 0.3;
+
+  const trunk = new CylinderGeometry(trunkRadius * 0.7, trunkRadius, trunkHeight, 6, 3);
+  trunk.translate(0, trunkHeight / 2, 0);
+  trunk.rotateZ(lean);
+  parts.push({ geometry: trunk, part: 0 });
+
+  const fronds = 7;
+  for (let i = 0; i < fronds; i++) {
+    const angle = (i / fronds) * Math.PI * 2 + hash2D(seed, i, 19) * 0.5;
+    const length = 1.5 + hash2D(seed, i, 23) * 0.7;
+    const frond = new BoxGeometry(0.16, 0.05, length);
+    // Pivot out from the crown, then droop. The droop is what stops it
+    // looking like a parasol.
+    frond.translate(0, 0, length * 0.5);
+    frond.rotateX(0.38 + hash2D(seed, i, 29) * 0.3);
+    frond.rotateY(angle);
+    frond.translate(0, trunkHeight, 0);
+    frond.rotateZ(lean);
+    parts.push({ geometry: frond, part: 1 });
+  }
+
+  return mergeWithHeights(parts, trunkHeight + 0.4);
+}
+
+/**
+ * A trunk plus a rounded canopy. Broadleaf trees -- birch, and the cactus,
+ * which is the same construction with one small green blob on top.
  *
  * Trunk and canopy are merged into one geometry -- one draw call for a whole
  * forest -- but tagged with `aPart` (0 = wood, 1 = leaf) so the shader can
@@ -98,8 +205,11 @@ function treeGeometry(
   canopyLayers.forEach((layer, i) => {
     // Rounded rather than conical: a cone reads as a Christmas tree even when
     // it is meant to be a birch. Segments kept low; these are instanced.
-    const blob = new SphereGeometry(layer.radius, 10, 7);
+    const blob = new SphereGeometry(layer.radius, 9, 6);
     blob.scale(1, Math.max(0.42, layer.height / (layer.radius * 2)), 1);
+    // Break the ellipsoid before it is placed, or every canopy in the wood is
+    // the same shape rotated.
+    roughen(blob, seed * 31 + i, 0.34);
     // Squash and offset each layer differently so a canopy is a clump of
     // masses rather than one smooth ball.
     blob.translate(
@@ -253,25 +363,20 @@ export function foliageGeometry(kind: FoliageKind, variant = 0): BufferGeometry 
       );
       break;
     case 'pine':
-      geo = treeGeometry(
+      geo = coniferGeometry(
         4.4 + variant * 0.4,
         0.17,
         [
-          { y: 1.5, radius: 1.55, height: 1.9 },
-          { y: 2.7, radius: 1.2, height: 1.7 },
-          { y: 3.8, radius: 0.85, height: 1.5 },
-          { y: 4.8, radius: 0.45, height: 1.1 },
+          { y: 1.3, radius: 1.7, height: 2.1 },
+          { y: 2.6, radius: 1.3, height: 1.9 },
+          { y: 3.7, radius: 0.92, height: 1.7 },
+          { y: 4.7, radius: 0.5, height: 1.3 },
         ],
         variant + 21,
       );
       break;
     case 'palm':
-      geo = treeGeometry(
-        4.6 + variant * 0.5,
-        0.13,
-        [{ y: 4.2, radius: 1.9, height: 0.5 }],
-        variant + 41,
-      );
+      geo = palmGeometry(4.6 + variant * 0.5, 0.13, variant + 41);
       break;
     case 'cactus':
       geo = treeGeometry(

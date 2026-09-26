@@ -65,9 +65,13 @@ export function GuardianEntity({
   const cone = useRef<Mesh>(null);
   const icon = useRef<Group>(null);
   const bob = useRef(0);
+  const menace = useRef(0);
+  /** The head's rest position, captured once so the lunge can offset from it. */
+  const headBaseZ = useRef(0);
 
   const parts = useMemo(() => buildCreature(body, scale), [body, scale]);
   useEffect(() => {
+    headBaseZ.current = parts.head.position.z;
     return () => disposeCreature(parts);
   }, [parts]);
 
@@ -80,23 +84,47 @@ export function GuardianEntity({
     g.position.set(instance.position.x, instance.groundY, instance.position.z);
     g.rotation.y = MathUtils.damp(g.rotation.y, instance.facing, 8, dt);
 
-    const moving = state === 'chase' || state === 'investigate' || state === 'patrol';
-    bob.current += dt * (state === 'chase' ? 9 : state === 'drowsy' ? 1.2 : 4);
+    const chasing = state === 'chase';
+    const moving = chasing || state === 'investigate' || state === 'patrol';
+    bob.current += dt * (chasing ? 14 : state === 'drowsy' ? 1.2 : 4);
+
+    /*
+     * Menace, built from posture rather than from anything unkind.
+     *
+     * A chasing guardian rears up, pitches forward and pounds -- bigger,
+     * lower and faster than the thing that was pottering about a second ago.
+     * The brief is emphatic that nothing in this game hurts anybody, so the
+     * scare has to come from presence and commitment, the way a cross goose
+     * is frightening without ever being a threat.
+     */
+    menace.current = MathUtils.damp(menace.current, chasing ? 1 : 0, 7, dt);
+    const m = menace.current;
+    g.scale.setScalar(1 + m * 0.16);
     parts.body.position.y =
       parts.body.userData.baseY !== undefined
         ? (parts.body.userData.baseY as number) +
           (moving ? Math.abs(Math.sin(bob.current)) * 0.06 : 0)
         : parts.body.position.y;
 
-    // A drowsy guardian visibly slumps. Feeding it a berry has to read.
-    const slump = state === 'drowsy' ? -0.18 : 0;
+    // A drowsy guardian visibly slumps; a chasing one lowers its head and
+    // drives forward.
+    const slump = state === 'drowsy' ? -0.18 : m * 0.34;
     parts.body.rotation.x = MathUtils.damp(parts.body.rotation.x, slump, 6, dt);
+    // Head down and thrust out. Half of what makes a charge read as a charge.
+    parts.head.rotation.x = MathUtils.damp(parts.head.rotation.x, m * 0.5, 7, dt);
+    parts.head.position.z = MathUtils.damp(
+      parts.head.position.z,
+      headBaseZ.current + m * 0.14,
+      7,
+      dt,
+    );
 
     for (let i = 0; i < parts.legs.length; i++) {
       const leg = parts.legs[i];
       if (leg === undefined) continue;
       const offset = (i % 2 === 0 ? 0 : Math.PI) + Math.floor(i / 2) * 0.7;
-      leg.rotation.x = moving ? Math.sin(bob.current + offset) * 0.42 : 0;
+      // Longer stride under pursuit, so the gait matches the speed.
+      leg.rotation.x = moving ? Math.sin(bob.current + offset) * (0.42 + m * 0.4) : 0;
     }
 
     const camera = _state.camera.position;

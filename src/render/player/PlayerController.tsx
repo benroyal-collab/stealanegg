@@ -84,6 +84,7 @@ function createPool(pace: number): Pool {
       cameraYaw: 0,
       sprintHeld: false,
       crouchHeld: false,
+      pursuitPressure: 0,
       jumpPressed: false,
       dt: 0,
     },
@@ -304,6 +305,8 @@ export function PlayerController({
     moveInput.moveY = frame.moveY;
     moveInput.cameraYaw = cameraState.yaw;
     moveInput.sprintHeld = frame.sprint;
+    // Written by the loop each frame: how close the nearest pursuer is.
+    moveInput.pursuitPressure = playerRef.pursuitPressure;
     moveInput.crouchHeld = frame.crouch;
     moveInput.jumpPressed = frame.jumpPressed;
     moveInput.dt = dt;
@@ -339,6 +342,7 @@ export function PlayerController({
     playerRef.grounded = movement.grounded;
     playerRef.inWater = environment.waterDepth > 0.15;
     playerRef.noiseRadius = noiseRadiusFor(movement.gait, playerRef.inWater);
+    playerRef.pace = pace;
     playerRef.cameraYaw = cameraState.yaw;
     playerRef.justLanded = movement.justLanded;
     playerRef.justJumped = movement.justJumped;
@@ -357,6 +361,7 @@ export function PlayerController({
       z: playerRef.position.z,
       sprinting: movement.gait === 'sprint',
       crouching: movement.stance === 'crouched' || movement.stance === 'sliding',
+      pursuitPressure: playerRef.pursuitPressure,
     };
     stepCamera(cameraState, target, pool.cameraOptions, traceArm, dt, cameraOut);
 

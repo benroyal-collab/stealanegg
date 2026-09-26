@@ -13,6 +13,8 @@
 
 export type CueId =
   | 'egg-grab'
+  | 'egg-recover'
+  | 'chase-start'
   | 'egg-drop'
   | 'egg-deposit'
   | 'egg-hatch'
@@ -65,6 +67,23 @@ export interface Cue {
 }
 
 export const CUES: Record<CueId, Cue> = {
+  'egg-recover': {
+    id: 'egg-recover',
+    caption: 'You scoop the egg back up!',
+    icon: 'egg',
+    seconds: 2.5,
+    continuous: false,
+    channel: 'sfx',
+  },
+  'chase-start': {
+    id: 'chase-start',
+    // Short on purpose: it has to be read at a glance, mid-sprint.
+    caption: 'A guardian is chasing you!',
+    icon: 'alert',
+    seconds: 3,
+    continuous: false,
+    channel: 'sfx',
+  },
   'egg-grab': {
     id: 'egg-grab',
     caption: 'You pick up the egg.',

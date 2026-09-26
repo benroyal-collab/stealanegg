@@ -204,6 +204,7 @@ export function BiomeRuntime({
         playerPosition: position,
         playerGroundY: playerRef.position.y,
         playerNoiseRadius: playerRef.noiseRadius,
+        playerPace: playerRef.pace,
         difficulty: settings.difficulty,
         hasLineOfSight,
         groundAt,
@@ -212,6 +213,9 @@ export function BiomeRuntime({
       r,
       loopEvents,
     );
+
+    // One number, read by the camera, the solver, the post chain and the mix.
+    playerRef.pursuitPressure = rt.pursuitPressure;
 
     // --- interaction ---------------------------------------------------------
     const station = nearestStation(position);
@@ -357,6 +361,15 @@ export function BiomeRuntime({
       case 'guardianAlerted':
         audioDirector.play('guardian-alert');
         break;
+      case 'chaseStarted':
+        // The alarm. Fires once per chase, not once per guardian, or a
+        // three-guardian alarm is three squawks on top of each other.
+        audioDirector.play('chase-start');
+        playerRef.shakeRequest = Math.max(playerRef.shakeRequest, 0.35);
+        break;
+      case 'recovered':
+        audioDirector.play('egg-recover');
+        break;
       case 'guardianGaveUp':
         audioDirector.play('guardian-giveup');
         break;
@@ -393,6 +406,21 @@ export function BiomeRuntime({
           nest={nest}
           highlighted={rt.grabTarget?.index === nest.index}
           contested={nest.contested}
+        />
+      ))}
+
+      {/*
+        Eggs on the floor where a catch knocked them loose. Worth rendering
+        plainly and brightly: this is the thing the player is about to run
+        back into danger for, and it has to be findable at a glance.
+      */}
+      {rt.loose.map((egg) => (
+        <EggEntity
+          key={egg.id}
+          roll={egg.roll}
+          position={[egg.position.x, egg.groundY + 0.18, egg.position.z]}
+          idle
+          highlighted={rt.looseTarget?.id === egg.id}
         />
       ))}
 
@@ -465,6 +493,11 @@ function describePrompt(rt: LoopRuntime, station: StationId | null): Prompt | nu
   if (station !== null && rt.carried === null) {
     const entry = STATIONS.find((s) => s.id === station);
     return { kind: 'station', label: entry?.label ?? 'Use', icon: station, station };
+  }
+  // The dropped egg wins: if the player is standing on the one they just
+  // lost, that is what they are reaching for.
+  if (rt.looseTarget !== null) {
+    return { kind: 'grab', label: 'Grab it back', icon: 'egg' };
   }
   if (rt.grabTarget !== null) {
     return { kind: 'grab', label: 'Pick up the egg', icon: 'egg' };

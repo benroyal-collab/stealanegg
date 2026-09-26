@@ -28,6 +28,14 @@ export interface MovementInput {
   cameraYaw: number;
   sprintHeld: boolean;
   crouchHeld: boolean;
+  /**
+   * How close the nearest pursuer is, 0 to 1. Drives adrenaline.
+   *
+   * Lives on the input rather than being read from a global so the solver
+   * stays a pure function of its arguments -- which is the only reason the
+   * feel tests can drive it a thousand frames in a millisecond.
+   */
+  pursuitPressure: number;
   /** True on the frame the jump button went down. */
   jumpPressed: boolean;
   dt: number;
@@ -302,7 +310,11 @@ export function stepMovement(
   const sprinting = wantsSprint && state.stance === 'upright' && horizontalSpeed > 0.5;
   state.sprinting = sprinting;
   if (sprinting) {
-    state.stamina = Math.max(0, state.stamina - dt);
+    // Adrenaline. The bar drains slower the closer the danger is, so a chase
+    // is the one place the player can really run.
+    const pressure = clamp(input.pursuitPressure, 0, 1);
+    const drain = 1 - (1 - STAMINA.adrenalineDrainMultiplier) * pressure;
+    state.stamina = Math.max(0, state.stamina - dt * drain);
     state.staminaIdleFor = 0;
     if (state.stamina <= 0) state.exhausted = true;
   } else {

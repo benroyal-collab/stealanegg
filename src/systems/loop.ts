@@ -8,7 +8,7 @@
  * a second.
  */
 
-import { EGG, GUARDIAN, MOVEMENT, RIVALS, TOOL_DEFS } from '../data/balance';
+import { CHASE, EGG, GUARDIAN, MOVEMENT, RIVALS, TOOL_DEFS } from '../data/balance';
 import { BIOME_DEFS } from '../data/biomes';
 import {
   createGuardianRuntime,
@@ -55,6 +55,17 @@ export interface LoopRuntime {
   guardians: GuardianInstance[];
   rivals: Rival[];
   thrown: ThrownTool[];
+  /**
+   * Eggs knocked loose by a catch, lying where they fell.
+   *
+   * A catch used to delete the egg outright, which made the whole trip a
+   * write-off. With a pursuit that can actually catch you that happens often,
+   * and "you lose everything" is how an eight year old decides to stop
+   * playing. Leaving it on the ground keeps the law intact -- failure costs
+   * time, never progress -- and turns the worst moment of a run into the best
+   * one, because going back in for it is a decision.
+   */
+  loose: LooseEgg[];
   /** The egg in the player's hands, or null. */
   carried: EggRoll | null;
   /** Seconds of tumble left after a catch. */
@@ -63,16 +74,52 @@ export interface LoopRuntime {
   hitstopRemaining: number;
   /** Nest the player could grab from right now. */
   grabTarget: Nest | null;
+  /** Dropped egg within reach, if any. Scooping one back up is free. */
+  looseTarget: LooseEgg | null;
   /** Sanctuary station the player is standing at. */
   station: string | null;
   /** Loudest guardian state anywhere, for the music director. */
   threat: 'calm' | 'alert' | 'chase';
+  /**
+   * Where an egg was just lifted, for exactly one frame, or null.
+   *
+   * Consumed and cleared by the next `stepLoop`, so the alarm fires once and
+   * a guardian that slept through it does not get a second chance.
+   */
+  snatchAlarmAt: Vec2 | null;
+  /** How close the nearest pursuer is, 0 (clear) to 1 (breathing down your neck). */
+  pursuitPressure: number;
   cooldowns: Record<ToolId, number>;
+}
+
+/** An egg on the ground, knocked loose by a catch. */
+export interface LooseEgg {
+  /** Stable across frames, so React can key the mesh. */
+  readonly id: number;
+  readonly roll: EggRoll;
+  readonly position: Vec2;
+  readonly groundY: number;
+}
+
+/** Nearest dropped egg within reach, or null. */
+function nearestLoose(loose: readonly LooseEgg[], from: Vec2, radius: number): LooseEgg | null {
+  let best: LooseEgg | null = null;
+  let bestDistance = radius;
+  for (const egg of loose) {
+    const distance = Math.hypot(egg.position.x - from.x, egg.position.z - from.z);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = egg;
+    }
+  }
+  return best;
 }
 
 export interface LoopEvent {
   readonly type:
     | 'grabbed'
+    | 'recovered'
+    | 'chaseStarted'
     | 'dropped'
     | 'deposited'
     | 'caught'
@@ -130,12 +177,16 @@ export function createLoopRuntime(biome: BiomeId, nests: Nest[]): LoopRuntime {
       new Rng(`${biome}-rivals`),
     ),
     thrown: [],
+    loose: [],
     carried: null,
     tumbleRemaining: 0,
     hitstopRemaining: 0,
     grabTarget: null,
+    looseTarget: null,
     station: null,
     threat: 'calm',
+    snatchAlarmAt: null,
+    pursuitPressure: 0,
     cooldowns: { seedPouch: 0, sleepyBerries: 0, whistle: 0 },
   };
 }
@@ -144,6 +195,8 @@ export interface LoopStepInput {
   readonly playerPosition: Vec2;
   readonly playerGroundY: number;
   readonly playerNoiseRadius: number;
+  /** Live Pace with the carry penalty applied; pursuit is a fraction of it. */
+  readonly playerPace: number;
   readonly difficulty: Difficulty;
   /** Callback that answers "can this guardian see through to there?" */
   readonly hasLineOfSight: (from: Vec2, fromY: number, to: Vec2, toY: number) => boolean;
@@ -151,6 +204,7 @@ export interface LoopStepInput {
   readonly dt: number;
 }
 
+let nextLooseId = 1;
 const rivalEvents: RivalEvent[] = [];
 const nestTick = { respawned: [] as number[] };
 
@@ -196,6 +250,10 @@ export function stepLoop(
   // --- guardians -----------------------------------------------------------
   const config = BIOME_DEFS[runtime.biome].guardian;
   let threat: LoopRuntime['threat'] = 'calm';
+  // Read and clear: the alarm is a single-frame edge, not a state.
+  const alarmAt = runtime.snatchAlarmAt;
+  runtime.snatchAlarmAt = null;
+  let pressure = 0;
 
   for (const guardian of runtime.guardians) {
     const toPlayer = {
@@ -243,6 +301,17 @@ export function stepLoop(
       else lure = tool.position;
     }
 
+    /*
+     * Everything within earshot of the nest answers the alarm, whether or not
+     * it can see anyone. Distance is measured from the robbed nest rather than
+     * from the player, so a guardian on the far side of the world does not
+     * wake up just because the player has since run towards it.
+     */
+    const alarm =
+      alarmAt !== null &&
+      Math.hypot(alarmAt.x - guardian.position.x, alarmAt.z - guardian.position.z) <=
+        CHASE.snatchAlarmRadius;
+
     const before = guardian.runtime.state;
     const result = stepGuardian(guardian.runtime, {
       config,
@@ -251,12 +320,19 @@ export function stepLoop(
       playerPosition: input.playerPosition,
       lure,
       sleepTriggered: sleep,
+      snatchAlarm: alarm,
+      playerPace: input.playerPace,
       dt,
     });
 
     if (result.changed) {
       if (result.state === 'alert' && before === 'patrol') {
         events.push({ type: 'guardianAlerted' });
+      }
+      // One sting per chase, however many guardians join it -- three alarms
+      // stacked on the same frame is noise, not menace.
+      if (result.state === 'chase' && before !== 'chase' && threat !== 'chase') {
+        events.push({ type: 'chaseStarted' });
       }
       if (result.state === 'giveUp') events.push({ type: 'guardianGaveUp' });
     }
@@ -270,6 +346,18 @@ export function stepLoop(
     if (result.state === 'chase') threat = 'chase';
     else if (result.state === 'alert' && threat === 'calm') threat = 'alert';
 
+    /*
+     * Pressure from the nearest active pursuer.
+     *
+     * Full at the catch radius, gone by twelve metres. One number, so the
+     * camera, the vignette and the music all agree about how close the danger
+     * actually is instead of each guessing.
+     */
+    if (result.state === 'chase' || result.state === 'giveUp') {
+      const near = 1 - (distance - GUARDIAN.catchRadius) / CHASE.pressureFalloffMetres;
+      pressure = Math.max(pressure, Math.min(1, Math.max(0, near)));
+    }
+
     // --- the catch ---------------------------------------------------------
     if (
       result.state === 'chase' &&
@@ -280,11 +368,27 @@ export function stepLoop(
       runtime.hitstopRemaining = MOVEMENT.hitstopMs / 1000;
       const dropped = runtime.carried;
       runtime.carried = null;
+      if (dropped !== null) {
+        runtime.loose.push({
+          id: nextLooseId++,
+          roll: dropped,
+          position: { x: input.playerPosition.x, z: input.playerPosition.z },
+          groundY: input.playerGroundY,
+        });
+      }
       events.push({ type: 'caught', ...(dropped === null ? {} : { roll: dropped }) });
     }
   }
 
   runtime.threat = threat;
+  /*
+   * How frightened the player should feel, 0 to 1.
+   *
+   * Drives the camera, the vignette and the audio mix from one number, so the
+   * scare always matches the actual danger rather than being a fixed sting
+   * that plays whether the guardian is two metres away or twenty.
+   */
+  runtime.pursuitPressure = pressure;
 
   // --- rivals --------------------------------------------------------------
   const world = {
@@ -319,16 +423,43 @@ export function stepLoop(
     runtime.carried === null
       ? nearestEgg(runtime.nests, input.playerPosition, EGG.grabRadius)
       : null;
+  runtime.looseTarget =
+    runtime.carried === null
+      ? nearestLoose(runtime.loose, input.playerPosition, EGG.grabRadius)
+      : null;
 }
 
-/** Player pressed Grab on a nest. */
+/**
+ * Player pressed Grab on a nest.
+ *
+ * Lifting an egg is the loudest thing that happens in this game, and until now
+ * it was silent: a child could rob a nest in front of a guardian's face and
+ * walk home. The grab now raises an alarm that every guardian within
+ * `CHASE.snatchAlarmRadius` answers on the next frame, with no perception
+ * check and no wind-up.
+ */
 export function grabEgg(runtime: LoopRuntime, events: LoopEvent[]): boolean {
+  /*
+   * A dropped egg wins over a nest. If the player is standing on the one they
+   * just lost, that is unambiguously what they are reaching for -- and no
+   * alarm goes off, because picking your own egg up off the floor is quiet.
+   */
+  const loose = runtime.looseTarget;
+  if (loose !== null && runtime.carried === null) {
+    runtime.carried = loose.roll;
+    runtime.loose.splice(runtime.loose.indexOf(loose), 1);
+    runtime.looseTarget = null;
+    events.push({ type: 'recovered', roll: loose.roll });
+    return true;
+  }
+
   const nest = runtime.grabTarget;
   if (nest === null || runtime.carried !== null) return false;
   const egg = takeEgg(nest);
   if (egg === null) return false;
   runtime.carried = egg;
   runtime.grabTarget = null;
+  runtime.snatchAlarmAt = { x: nest.position.x, z: nest.position.z };
   events.push({ type: 'grabbed', nest: nest.index, roll: egg });
   return true;
 }

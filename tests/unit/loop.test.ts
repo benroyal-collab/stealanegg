@@ -206,8 +206,12 @@ describe('rivals', () => {
 });
 
 describe('the rules that must never change', () => {
-  it('being caught costs three seconds and nothing else', () => {
-    expect(GUARDIAN.tumbleSeconds).toBe(3);
+  it('being caught costs about a second and nothing else', () => {
+    // Failure costs time, never progress. Three seconds face-down is an
+    // eternity at eight years old, and the dropped egg stays where it fell,
+    // so the comeback is a scramble rather than a loss.
+    expect(GUARDIAN.tumbleSeconds).toBeLessThan(1.5);
+    expect(GUARDIAN.tumbleSeconds).toBeGreaterThan(0.5);
   });
 
   it('losing a race costs twenty seconds and nothing else', () => {

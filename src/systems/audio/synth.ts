@@ -205,6 +205,21 @@ export function playCue(synth: Synth, id: CueId, variation = 0): void {
     case 'egg-grab':
       synth.tone(520, 0.16, { type: 'triangle', gain: 0.22, sweepTo: 760 });
       break;
+    case 'egg-recover':
+      // Brighter and more triumphant than the first pickup. Getting it back
+      // is the better story.
+      synth.arpeggio(587, [0, 5, 9], 0.06, 0.2);
+      break;
+    case 'chase-start': {
+      /*
+       * The alarm. A squawk plus a rising interval -- loud and startling on
+       * purpose, but comic rather than frightening: this is a cross bird, not
+       * a threat. Nothing in this game hurts anybody.
+       */
+      synth.noise(0.12, { frequency: 1400, q: 1.1, gain: 0.3, type: 'bandpass' });
+      synth.tone(180, 0.3, { type: 'sawtooth', gain: 0.2, sweepTo: 320 });
+      break;
+    }
     case 'egg-drop':
       synth.tone(360, 0.18, { type: 'sine', gain: 0.16, sweepTo: 240 });
       break;

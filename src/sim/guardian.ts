@@ -10,7 +10,7 @@
  * exhaustively unit-tested.
  */
 
-import { DIFFICULTY_MODS, GUARDIAN } from '../data/balance';
+import { CHASE, DIFFICULTY_MODS, GUARDIAN } from '../data/balance';
 import type {
   Difficulty,
   GuardianConfig,
@@ -89,6 +89,21 @@ export interface GuardianStepInput {
   readonly lure: Vec2 | null;
   /** Set for the frame in which a Sleepy Berry is eaten. */
   readonly sleepTriggered: boolean;
+  /**
+   * Set for the frame in which an egg is lifted within earshot.
+   *
+   * Overrides perception entirely: the guardian does not need to see or hear
+   * the player, because the sound it just heard was its own nest being
+   * robbed. This is the moment the game turns on.
+   */
+  readonly snatchAlarm: boolean;
+  /**
+   * The player's current Pace, in m/s, carry penalty already applied.
+   *
+   * Pursuit is a fraction of this rather than an absolute speed, so a chase
+   * is still a chase after twenty Training Track levels.
+   */
+  readonly playerPace: number;
   readonly dt: number;
 }
 
@@ -119,6 +134,19 @@ export function stepGuardian(rt: GuardianRuntime, input: GuardianStepInput): Gua
   if (input.sleepTriggered && rt.state !== 'drowsy') {
     setState(rt, 'drowsy');
     rt.drowsyFor = config.drowsySeconds;
+  }
+
+  /*
+   * The snatch alarm. Straight to `chase`, no perception, no ramp.
+   *
+   * A drowsy guardian sleeps through it -- that is what the berry is for, and
+   * it is the only counterplay that survives the alarm, which makes the tool
+   * worth carrying.
+   */
+  if (input.snatchAlarm && rt.state !== 'drowsy' && rt.state !== 'chase') {
+    rt.investigateTarget = { ...input.playerPosition };
+    setState(rt, 'chase');
+    rt.timeSinceContact = 0;
   }
 
   // A thrown lure is the loudest thing in the world for a moment.
@@ -174,7 +202,7 @@ export function stepGuardian(rt: GuardianRuntime, input: GuardianStepInput): Gua
     case 'cooldown': {
       // Deliberately dulled: the player gets a guaranteed window to reset.
       if (rt.timeInState >= config.cooldownSeconds) setState(rt, 'patrol');
-      else if (perception.sees && rt.timeInState > config.cooldownSeconds * 0.5) {
+      else if (perception.sees && rt.timeInState > GUARDIAN.resetWindowSeconds) {
         setState(rt, 'alert');
       }
       break;
@@ -193,29 +221,54 @@ export function stepGuardian(rt: GuardianRuntime, input: GuardianStepInput): Gua
   return {
     state: rt.state,
     changed: rt.state !== before,
-    speed: speedFor(rt.state, config, mods.guardianSpeed),
+    speed: speedFor(rt, config, mods.guardianSpeed, input.playerPace),
     target: targetFor(rt, input),
   };
 }
 
-function speedFor(state: GuardianState, config: GuardianConfig, mod: number): number {
-  switch (state) {
+/**
+ * How fast the guardian moves, this frame.
+ *
+ * Patrol, investigate and cooldown are absolute: they are scenery, and a
+ * guardian pottering at walking pace reads correctly whatever the player has
+ * bought. Pursuit is relative to the player, for the reason in `CHASE`.
+ */
+function speedFor(
+  rt: GuardianRuntime,
+  config: GuardianConfig,
+  mod: number,
+  playerPace: number,
+): number {
+  const pursuit = playerPace * config.chaseAggression * mod;
+  switch (rt.state) {
     case 'patrol':
       return config.patrolSpeed * mod;
     case 'alert':
       return config.patrolSpeed * 0.35 * mod;
     case 'investigate':
       return config.patrolSpeed * 1.5 * mod;
-    case 'chase':
-      return config.chaseSpeed * mod;
+    case 'chase': {
+      /*
+       * The lunge. For the first couple of seconds it is faster than the
+       * player no matter what they do, and the gap closing is the sensation
+       * the whole game is built on. After that it settles just below Pace, so
+       * a clean line slowly wins and a fumbled corner does not.
+       */
+      const lunging = rt.timeInState < CHASE.lungeSeconds;
+      // Aggression is in `pursuit` and belongs to the lunge only. Sustained
+      // speed is flat across biomes so that none of them is inescapable.
+      return lunging ? pursuit * CHASE.lungeFraction : playerPace * CHASE.sustainedFraction * mod;
+    }
     case 'giveUp':
-      return 0;
+      // Still moving. A pursuer that stops dead the instant it loses you is
+      // the clearest possible signal that the danger is over.
+      return playerPace * CHASE.huntFraction * mod;
     case 'cooldown':
       return config.patrolSpeed * 0.8 * mod;
     case 'drowsy':
       return config.patrolSpeed * GUARDIAN.drowsySpeedMultiplier * mod;
     default:
-      return assertNever(state);
+      return assertNever(rt.state);
   }
 }
 

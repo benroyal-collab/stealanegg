@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BIOME_DEFS } from '../../src/data/biomes';
-import { GUARDIAN } from '../../src/data/balance';
+import { CHASE, GUARDIAN, MOVEMENT, PACE } from '../../src/data/balance';
 import {
   createGuardianRuntime,
   isHostileState,
@@ -42,6 +42,8 @@ function step(
       playerPosition: ORIGIN,
       lure: i === 0 ? lure : null,
       sleepTriggered: sleep && i === 0,
+      snatchAlarm: false,
+      playerPace: MOVEMENT.basePace,
       dt: DT,
     });
   }
@@ -302,7 +304,9 @@ describe('guardian transition table', () => {
     step(rt, blind(), CONFIG.giveUpSeconds + 0.2);
     step(rt, blind(), 1.1);
     expect(rt.state).toBe('cooldown');
-    step(rt, seen(), CONFIG.cooldownSeconds * 0.3);
+    // Named, not derived. This used to be half the cooldown, so shortening
+    // the cooldown to re-arm the world faster silently halved the breather.
+    step(rt, seen(), GUARDIAN.resetWindowSeconds * 0.5);
     expect(rt.state).toBe('cooldown');
   });
 
@@ -385,11 +389,13 @@ describe('guardian transition table', () => {
         playerPosition: ORIGIN,
         lure: null,
         sleepTriggered: false,
+        snatchAlarm: false,
+        playerPace: MOVEMENT.basePace,
         dt: DT,
       });
       expect(Number.isFinite(result.speed)).toBe(true);
       expect(result.speed).toBeGreaterThanOrEqual(0);
-      expect(result.speed).toBeLessThanOrEqual(CONFIG.chaseSpeed * 1.2);
+      expect(result.speed).toBeLessThanOrEqual(MOVEMENT.basePace * CHASE.lungeFraction * 1.2);
     }
   });
 
@@ -413,6 +419,8 @@ describe('guardian transition table', () => {
           playerPosition: ORIGIN,
           lure: null,
           sleepTriggered: false,
+          snatchAlarm: false,
+          playerPace: MOVEMENT.basePace,
           dt: DT,
         });
         t += DT;
@@ -451,6 +459,8 @@ describe('guardian transition table', () => {
         playerPosition: { x: rand() * 100 - 50, z: rand() * 100 - 50 },
         lure: rand() > 0.98 ? { x: rand() * 40, z: rand() * 40 } : null,
         sleepTriggered: rand() > 0.995,
+        snatchAlarm: rand() > 0.99,
+        playerPace: 1 + rand() * 25,
         dt: rand() * 0.06,
       });
       expect(legal.has(result.state)).toBe(true);
@@ -460,16 +470,52 @@ describe('guardian transition table', () => {
 });
 
 describe('guardian tuning sanity', () => {
-  it('every biome guardian can outrun a starting player', () => {
+  /*
+   * The assertion this replaces was called "every biome guardian can outrun a
+   * starting player" and checked `chaseSpeed > patrolSpeed` -- it compared the
+   * guardian to itself and would have passed at any speed whatsoever. It did
+   * pass, for months, while Whisper Glade's guardian chased at 4.2 m/s against
+   * a 6.0 m/s sprint, and a child reported that they could walk home carrying
+   * a stolen egg.
+   *
+   * So these measure pursuit against the player, which is the only comparison
+   * that means anything.
+   */
+  const lunge = (def: { guardian: { chaseAggression: number } }, pace: number): number =>
+    pace * def.guardian.chaseAggression * CHASE.lungeFraction;
+
+  it('every biome guardian outruns a starting player during its lunge', () => {
     for (const def of Object.values(BIOME_DEFS)) {
-      expect(def.guardian.chaseSpeed).toBeGreaterThan(def.guardian.patrolSpeed);
+      expect(lunge(def, MOVEMENT.basePace), `${def.id} cannot catch anyone`).toBeGreaterThan(
+        MOVEMENT.basePace,
+      );
     }
+  });
+
+  it('still outruns a fully upgraded player, because pursuit scales with Pace', () => {
+    for (const def of Object.values(BIOME_DEFS)) {
+      expect(lunge(def, PACE.cap), `${def.id} is obsolete at max Pace`).toBeGreaterThan(PACE.cap);
+    }
+  });
+
+  it('settles just below the player once the lunge is spent', () => {
+    // A clean line wins; a fumbled corner does not. Above 1.0 the chase is
+    // unwinnable by running and becomes a countdown; below about 0.9 it stops
+    // being a chase at all. Flat across biomes, on purpose.
+    expect(CHASE.sustainedFraction).toBeLessThan(1);
+    expect(CHASE.sustainedFraction).toBeGreaterThan(0.9);
+  });
+
+  it('never stops dead while it still believes it is hunting', () => {
+    // The old giveUp state returned a literal zero. Nothing signals "you are
+    // safe" like a pursuer standing still.
+    expect(CHASE.huntFraction).toBeGreaterThan(0.5);
   });
 
   it('the Swan is fast but corners badly, which is its whole gimmick', () => {
     const swan = BIOME_DEFS.mirrormere.guardian;
     const hen = BIOME_DEFS.glade.guardian;
-    expect(swan.chaseSpeed).toBeGreaterThan(hen.chaseSpeed);
+    expect(swan.chaseAggression).toBeGreaterThan(hen.chaseAggression);
     expect(swan.turnRate).toBeLessThan(hen.turnRate);
   });
 
@@ -478,12 +524,30 @@ describe('guardian tuning sanity', () => {
     for (const def of Object.values(BIOME_DEFS)) {
       if (def.id === 'glade') continue;
       expect(hen.visionRange).toBeLessThanOrEqual(def.guardian.visionRange);
-      expect(hen.chaseSpeed).toBeLessThanOrEqual(def.guardian.chaseSpeed);
-      expect(hen.giveUpSeconds).toBeLessThanOrEqual(def.guardian.giveUpSeconds);
+      expect(hen.chaseAggression).toBeLessThanOrEqual(def.guardian.chaseAggression);
     }
   });
 
-  it('being caught costs three seconds and nothing else', () => {
-    expect(GUARDIAN.tumbleSeconds).toBe(3);
+  it('every biome shares one chase rhythm', () => {
+    // Each biome used to spell out its own alert and give-up timings, and they
+    // had drifted away from balance.ts -- the file everyone reads described a
+    // guardian that did not exist. Biomes vary by perception and aggression
+    // only.
+    for (const def of Object.values(BIOME_DEFS)) {
+      expect(def.guardian.alertSeconds).toBe(GUARDIAN.alertSeconds);
+      expect(def.guardian.giveUpSeconds).toBe(GUARDIAN.giveUpSeconds);
+      expect(def.guardian.cooldownSeconds).toBe(GUARDIAN.cooldownSeconds);
+    }
+  });
+
+  it('reacts almost instantly, because a wind-up is a free head start', () => {
+    expect(GUARDIAN.alertSeconds).toBeLessThan(0.5);
+  });
+
+  it('being caught costs about a second and nothing else', () => {
+    // Failure costs time, never progress -- and three seconds face-down is an
+    // eternity at eight years old.
+    expect(GUARDIAN.tumbleSeconds).toBeLessThan(1.5);
+    expect(GUARDIAN.tumbleSeconds).toBeGreaterThan(0.5);
   });
 });
