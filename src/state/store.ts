@@ -407,7 +407,14 @@ export const useGame = create<GameStore>((set, get) => ({
       text,
       expiresAt: state.save.playSeconds + seconds,
     };
-    set((s) => ({ captions: [...s.captions.slice(-2), entry] }));
+    /*
+     * Two lines at most. A grab, a chase and a tumble can all land inside
+     * one second, and three stacked caption bars on a laptop screen reach
+     * the middle of the frame -- which is where the player and whatever is
+     * chasing them are. The newest two are the ones that matter; the older
+     * one has already been on screen.
+     */
+    set((s) => ({ captions: [...s.captions.slice(-1), entry] }));
   },
 
   dismissBreakPrompt: () => set({ showBreakPrompt: false }),

@@ -190,10 +190,19 @@ button {
 
 /* --- prompt -------------------------------------------------------------- */
 
-.prompt {
+.hud__bottom {
   grid-column: 1 / -1;
   grid-row: 3;
   justify-self: center;
+  align-self: end;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.prompt {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -290,15 +299,10 @@ button {
 /* --- captions ------------------------------------------------------------ */
 
 .captions {
-  grid-column: 1 / -1;
-  grid-row: 3;
-  justify-self: center;
-  align-self: end;
   display: flex;
   flex-direction: column;
   gap: 6px;
   align-items: center;
-  margin-bottom: 64px;
 }
 
 .captions__line {
@@ -310,6 +314,28 @@ button {
   border-radius: 10px;
   font-size: 1.02em;
   max-width: min(680px, 84vw);
+}
+
+/*
+ * Short screens -- a landscape phone, a small laptop window -- lose the most
+ * to the bottom column, and the player stands just below the middle of the
+ * frame. Tighter bars keep the column out of the way.
+ */
+@media (max-height: 560px) {
+  .hud__bottom {
+    gap: 5px;
+    margin-bottom: 0;
+  }
+  .captions__line {
+    padding: 5px 12px;
+    font-size: 1em;
+  }
+  .tutorial {
+    padding: 7px 14px;
+  }
+  .prompt {
+    padding: 7px 14px;
+  }
 }
 
 /* --- toasts -------------------------------------------------------------- */
@@ -759,11 +785,6 @@ input[type='range'] {
 /* --- tutorial ------------------------------------------------------------ */
 
 .tutorial {
-  position: fixed;
-  left: 50%;
-  bottom: 118px;
-  transform: translateX(-50%);
-  z-index: 8;
   display: flex;
   align-items: center;
   gap: 12px;

@@ -19,7 +19,6 @@ import { FieldGuidePanel } from './menus/FieldGuidePanel';
 import { AboutPanel } from './menus/AboutPanel';
 import { BreakPrompt } from './BreakPrompt';
 import { OfflineWelcome } from './OfflineWelcome';
-import { Tutorial } from './Tutorial';
 import { TouchControls } from './TouchControls';
 import { PerfOverlay } from './PerfOverlay';
 import { PhotoMode } from './PhotoMode';
@@ -87,7 +86,6 @@ export function App(): React.ReactElement {
 
       <AudioBridge />
       <Hud />
-      <Tutorial />
       <PhotoMode />
       <TouchControls />
       <PerfOverlay />

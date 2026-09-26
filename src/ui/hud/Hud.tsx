@@ -21,6 +21,7 @@ import { StaminaRing } from './StaminaRing';
 import { IncubatorPill } from './IncubatorPill';
 import { CaptionTrack } from './CaptionTrack';
 import { ToastStack } from './ToastStack';
+import { Tutorial } from '../Tutorial';
 import { donationsPerSecond, habitatSlots, nextLockedBiome } from '../../sim/economy';
 import { BIOME_DEFS } from '../../data/biomes';
 
@@ -72,8 +73,19 @@ export function Hud(): React.ReactElement | null {
 
       <StaminaRing />
       <DangerArrow />
-      {prompt !== null ? <PromptChip prompt={prompt} /> : null}
-      <CaptionTrack />
+      {/*
+        Everything that talks to the player from the bottom of the screen is
+        one column, so the pieces stack instead of landing on top of each
+        other. They used to be positioned independently, and a tumble put the
+        objective, three captions and the "grab it back" prompt all in the
+        same few rows -- with the prompt, the one thing that needed reading,
+        underneath.
+      */}
+      <div className="hud__bottom">
+        <Tutorial />
+        <CaptionTrack />
+        {prompt !== null ? <PromptChip prompt={prompt} /> : null}
+      </div>
       <ToastStack />
     </div>
   );
