@@ -35,15 +35,20 @@ function shade(hex: string, factor: number): string {
 export interface SanctuaryProps {
   groundY: number;
   /**
-   * The biome's own soil colours.
+   * The biome's exposed-soil colour -- its `cliffColour`, not its surface.
    *
-   * The clearing is trodden earth, and trodden earth is whatever the ground
-   * around it is made of, compacted. Painted one fixed brown it read as a
-   * patch dropped onto the Dunes' pale sand -- a visible seam on the largest
-   * flat surface in the game.
+   * A trodden clearing is the ground with the surface worn off it, so it
+   * should look like what is *under* the grass. Two wrong answers were tried
+   * first: one fixed brown, which read as a patch pasted onto the Dunes' pale
+   * sand; then the biome's own surface colour darkened, which made Whisper
+   * Glade's clearing dark green and it vanished into the lawn entirely -- the
+   * sanctuary stopped reading as somewhere people are.
+   *
+   * The soil colour gives brown earth under the Glade's grass, grey-green
+   * under Mirrormere's, and warm sand in the Dunes, which is right in all
+   * three.
    */
-  groundLow: string;
-  groundMid: string;
+  soil: string;
   incubator: EggInIncubator | null;
   creatures: readonly OwnedCreature[];
   habitatSlots: number;
@@ -93,8 +98,7 @@ export const STATIONS: readonly Station[] = [
 
 export function Sanctuary({
   groundY,
-  groundLow,
-  groundMid,
+  soil,
   incubator,
   creatures,
   habitatSlots,
@@ -110,9 +114,9 @@ export function Sanctuary({
   const clearingMaterial = useMemo(() => {
     // Darker and a touch less saturated than the surrounding soil: the same
     // earth, walked on.
-    const albedo = groundAlbedo(`sanctuary-${groundLow}`, shade(groundLow, 0.82), groundMid);
+    const albedo = groundAlbedo(`sanctuary-${soil}`, shade(soil, 0.84), shade(soil, 1.1));
     albedo.repeat.set(9, 9);
-    const rough = roughnessMap(`sanctuary-${groundLow}`, 0.94, 0.12);
+    const rough = roughnessMap(`sanctuary-${soil}`, 0.94, 0.12);
     rough.repeat.set(9, 9);
     const normal = microNormal();
     normal.repeat.set(9, 9);
@@ -126,7 +130,7 @@ export function Sanctuary({
     });
     mat.normalScale.set(0.7, 0.7);
     return mat;
-  }, [groundLow, groundMid]);
+  }, [soil]);
 
   useEffect(() => () => clearingMaterial.dispose(), [clearingMaterial]);
 
@@ -163,7 +167,7 @@ export function Sanctuary({
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.015, 0]} receiveShadow>
         <ringGeometry args={[SANCTUARY_RADIUS - 1.4, SANCTUARY_RADIUS + 3.4, 44]} />
         <meshStandardMaterial
-          color={shade(groundMid, 0.94)}
+          color={shade(soil, 1.02)}
           roughness={0.97}
           transparent
           opacity={0.72}

@@ -448,8 +448,7 @@ export function BiomeRuntime({
 
       <Sanctuary
         groundY={sanctuaryGround}
-        groundLow={BIOME_DEFS[biome].terrain.groundColourLow}
-        groundMid={BIOME_DEFS[biome].terrain.groundColourMid}
+        soil={BIOME_DEFS[biome].terrain.cliffColour}
         incubator={save.incubator}
         creatures={save.creatures}
         habitatSlots={habitatSlots(save.upgrades)}
