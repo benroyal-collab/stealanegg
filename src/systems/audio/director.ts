@@ -31,6 +31,9 @@ export class AudioDirector {
     null;
   private chaseGain: GainNode | null = null;
   private chaseOscillators: OscillatorNode[] = [];
+  /** The night's low dread drone, which swells as a guardian closes in. */
+  private drone: { oscillators: OscillatorNode[]; gain: GainNode } | null = null;
+  private heartTimer = 0;
 
   private threat: ThreatLevel = 'calm';
   private wildlifeTimer = 0;
@@ -101,11 +104,13 @@ export class AudioDirector {
       gain.connect(buses.music);
       this.chaseGain = gain;
 
-      // Two detuned saw voices a fifth apart: enough to read as "urgent"
-      // without being remotely frightening.
+      // A low cluster -- a root, a minor second rubbing against it and a
+      // tritone over both. The film-score chord for "something is behind
+      // you": tense and unresolved, never loud.
       for (const [frequency, detune] of [
         [110, -6],
-        [164.81, 6],
+        [116.54, 4],
+        [155.56, 6],
       ] as const) {
         const osc = context.createOscillator();
         osc.type = 'sawtooth';
@@ -176,6 +181,22 @@ export class AudioDirector {
     const rush = Math.min(1, context.speed / 7) ** 1.6;
     const chased = Math.min(1, context.pursuitPressure);
     this.setWind(rush * (0.55 + chased * 0.45));
+    this.setDread(chased);
+
+    /*
+     * The heartbeat, under pursuit only, quickening as the guardian closes.
+     * Same rate as the vignette's pulse (`NightGradeEffect`), so what you
+     * hear and what you see beat together.
+     */
+    if (chased > 0.12) {
+      this.heartTimer -= dt;
+      if (this.heartTimer <= 0) {
+        this.heartTimer = 1 / (1.1 + 0.8 * chased);
+        this.play('heartbeat');
+      }
+    } else {
+      this.heartTimer = 0;
+    }
 
     // --- wildlife --------------------------------------------------------
     const ambience = BIOME_DEFS[context.biome].ambience;
@@ -183,13 +204,7 @@ export class AudioDirector {
     if (this.wildlifeTimer <= 0) {
       const [low, high] = ambience.wildlifeIntervalSeconds;
       this.wildlifeTimer = low + Math.random() * (high - low);
-      const [pitchLow, pitchHigh] = ambience.wildlifePitch;
-      this.synth.tone(pitchLow + Math.random() * (pitchHigh - pitchLow), 0.16, {
-        type: 'sine',
-        gain: 0.06,
-        channel: 'ambience',
-        sweepTo: pitchLow * 1.3,
-      });
+      this.nightCall(ambience.nightCall);
     }
 
     // --- footsteps -------------------------------------------------------
@@ -210,6 +225,62 @@ export class AudioDirector {
         ? 'footstep-sand'
         : 'footstep-grass';
     this.play(material, this.variation);
+  }
+
+  /** Something calls out of the dark, a long way off. */
+  private nightCall(call: 'owl' | 'loon' | 'howl'): void {
+    const options = { type: 'sine' as const, channel: 'ambience' as const };
+    const drift = 0.94 + Math.random() * 0.12;
+    switch (call) {
+      case 'owl':
+        // Hoo -- hoo-hoo.
+        this.synth.tone(392 * drift, 0.3, { ...options, gain: 0.05, sweepTo: 350 * drift });
+        this.synth.tone(330 * drift, 0.45, {
+          ...options,
+          gain: 0.045,
+          sweepTo: 300 * drift,
+          delay: 0.5,
+        });
+        this.synth.tone(330 * drift, 0.35, {
+          ...options,
+          gain: 0.04,
+          sweepTo: 305 * drift,
+          delay: 1.05,
+        });
+        break;
+      case 'loon':
+        // A rising wail across the water, and a falling answer.
+        this.synth.tone(600 * drift, 1.3, { ...options, gain: 0.03, sweepTo: 900 * drift });
+        this.synth.tone(900 * drift, 1.2, {
+          ...options,
+          gain: 0.026,
+          sweepTo: 680 * drift,
+          delay: 1.25,
+        });
+        break;
+      case 'howl':
+        // Far off, and more felt than heard.
+        this.synth.tone(290 * drift, 1.8, { ...options, gain: 0.026, sweepTo: 510 * drift });
+        this.synth.tone(510 * drift, 1.6, {
+          ...options,
+          gain: 0.022,
+          sweepTo: 360 * drift,
+          delay: 1.7,
+        });
+        break;
+    }
+  }
+
+  /** The drone rises under pursuit: the sound of the dark getting closer. */
+  private setDread(pressure: number): void {
+    const drone = this.drone;
+    const context = this.synth.ctx;
+    if (drone === null || context === null) return;
+    const now = context.currentTime;
+    const gain = drone.gain.gain;
+    gain.cancelScheduledValues(now);
+    gain.setValueAtTime(gain.value, now);
+    gain.linearRampToValueAtTime(DRONE_LEVEL * (1 + pressure * 2.4), now + 0.1);
   }
 
   dispose(): void {
@@ -296,9 +367,41 @@ export class AudioDirector {
     source.start();
 
     this.bed = { source, gain, filter };
+
+    /*
+     * Under the wind, a drone: two low sines a tritone apart, rubbing. Not a
+     * tune and not loud -- just the sense, all night, that the wood is not
+     * quite empty.
+     */
+    const droneGain = context.createGain();
+    droneGain.gain.value = 0;
+    droneGain.gain.linearRampToValueAtTime(DRONE_LEVEL, context.currentTime + 4);
+    const lowpass = context.createBiquadFilter();
+    lowpass.type = 'lowpass';
+    lowpass.frequency.value = 240;
+    lowpass.connect(droneGain).connect(buses.ambience);
+    const oscillators = [49, 69.3].map((frequency) => {
+      const osc = context.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = frequency;
+      osc.connect(lowpass);
+      osc.start();
+      return osc;
+    });
+    this.drone = { oscillators, gain: droneGain };
   }
 
   private stopBed(): void {
+    if (this.drone !== null) {
+      for (const osc of this.drone.oscillators) {
+        try {
+          osc.stop();
+        } catch {
+          // Already stopped.
+        }
+      }
+      this.drone = null;
+    }
     if (this.bed === null) return;
     try {
       this.bed.source.stop();
@@ -308,5 +411,8 @@ export class AudioDirector {
     this.bed = null;
   }
 }
+
+/** Resting level of the night drone, before pursuit swells it. */
+const DRONE_LEVEL = 0.05;
 
 export const audioDirector = new AudioDirector();

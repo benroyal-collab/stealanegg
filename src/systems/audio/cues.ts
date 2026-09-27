@@ -27,6 +27,7 @@ export type CueId =
   | 'guardian-giveup'
   | 'guardian-drowsy'
   | 'caught'
+  | 'heartbeat'
   | 'rival-target'
   | 'rival-claim'
   | 'tool-throw'
@@ -185,6 +186,16 @@ export const CUES: Record<CueId, Cue> = {
     icon: 'berry',
     seconds: 3,
     continuous: false,
+    channel: 'sfx',
+  },
+  heartbeat: {
+    id: 'heartbeat',
+    // Continuous: it beats with the chase and would flood the track. Its
+    // visual twin is the vignette, which pulses in time with it.
+    caption: 'Your heart is pounding.',
+    icon: 'sprint',
+    seconds: 2.5,
+    continuous: true,
     channel: 'sfx',
   },
   caught: {

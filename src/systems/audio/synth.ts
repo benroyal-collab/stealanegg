@@ -257,6 +257,11 @@ export function playCue(synth: Synth, id: CueId, variation = 0): void {
     case 'guardian-drowsy':
       synth.tone(300, 0.7, { type: 'sine', gain: 0.14, sweepTo: 150 });
       break;
+    case 'heartbeat':
+      // Lub-dub: two soft, low thumps, felt more than heard.
+      synth.tone(62, 0.11, { type: 'sine', gain: 0.32, sweepTo: 48 });
+      synth.tone(56, 0.13, { type: 'sine', gain: 0.24, sweepTo: 44, delay: 0.17 });
+      break;
     case 'caught':
       // Comic, never alarming: a descending honk and a soft thud.
       synth.tone(300, 0.26, { type: 'square', gain: 0.18, sweepTo: 130 });
