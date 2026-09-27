@@ -29,7 +29,6 @@ import {
   Noise,
   SMAA,
   SSAO,
-  Vignette,
 } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
 import { useEffect, useMemo } from 'react';
@@ -39,6 +38,7 @@ import type { QualitySettings } from '../quality';
 import { playerRef } from '../player/playerRuntime';
 import { HeatHazeEffect } from './HeatHazeEffect';
 import { SprintBlurEffect } from './SprintBlurEffect';
+import { NightGradeEffect } from './NightGradeEffect';
 
 export interface PostChainProps {
   quality: QualitySettings;
@@ -65,14 +65,20 @@ export function PostChain({
 }: PostChainProps): React.ReactElement {
   const sprintBlur = useMemo(() => new SprintBlurEffect(6), []);
   const haze = useMemo(() => new HeatHazeEffect(), []);
+  const grade = useMemo(() => new NightGradeEffect(), []);
   const aberration = useMemo(() => new Vector2(0.0006, 0.0006), []);
 
   useEffect(() => {
     return () => {
       sprintBlur.dispose();
       haze.dispose();
+      grade.dispose();
     };
-  }, [sprintBlur, haze]);
+  }, [sprintBlur, haze, grade]);
+
+  useEffect(() => {
+    grade.vignette = quality.vignette ? 0.42 : 0.2;
+  }, [grade, quality.vignette]);
 
   const hazeStrength = heatHaze && quality.heatHaze && !reducedMotion ? 0.0016 : 0;
   useEffect(() => {
@@ -81,6 +87,7 @@ export function PostChain({
 
   const blurEnabled = quality.motionBlur && !reducedMotion;
   useFrame(() => {
+    grade.setPressure(playerRef.pursuitPressure, !reducedMotion);
     if (!blurEnabled) {
       sprintBlur.strength = 0;
       return;
@@ -186,7 +193,11 @@ export function PostChain({
       )}
 
       {quality.grain && !reducedMotion ? (
-        <Noise opacity={0.015} blendFunction={BlendFunction.OVERLAY} premultiply />
+        // Heavier than a daytime game would want: a night shoot is grainy,
+        // and grain is half of what makes a dark frame read as film rather
+        // than as a render with the lights off. Low amplitude, so it is
+        // texture rather than flicker.
+        <Noise opacity={0.045} blendFunction={BlendFunction.OVERLAY} premultiply />
       ) : (
         <></>
       )}
@@ -217,7 +228,8 @@ export function PostChain({
       <BrightnessContrast brightness={0} contrast={lighting.contrast} />
       <HueSaturation hue={0} saturation={lighting.saturation} />
 
-      {quality.vignette ? <Vignette offset={0.32} darkness={0.25} eskil={false} /> : <></>}
+      {/* The night grade and the vignette that closes in under pursuit. */}
+      <primitive object={grade} />
     </EffectComposer>
   );
 }

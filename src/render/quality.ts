@@ -51,6 +51,13 @@ export interface QualitySettings {
   readonly terrainDetailSampler: boolean;
   readonly heatHaze: boolean;
   readonly particles: boolean;
+  /**
+   * Whether the ranger's torch casts shadows. A spot shadow is one more pass
+   * over whatever the cone touches -- dozens of draws in a wood -- so it is a
+   * High feature. Below that the torch still lights; it just lights through
+   * things.
+   */
+  readonly flashlightShadows: boolean;
 }
 
 export const QUALITY_PRESETS: Record<QualityLevel, QualitySettings> = {
@@ -78,6 +85,7 @@ export const QUALITY_PRESETS: Record<QualityLevel, QualitySettings> = {
     terrainDetailSampler: false,
     heatHaze: false,
     particles: false,
+    flashlightShadows: false,
   },
   medium: {
     level: 'medium',
@@ -103,6 +111,7 @@ export const QUALITY_PRESETS: Record<QualityLevel, QualitySettings> = {
     terrainDetailSampler: true,
     heatHaze: true,
     particles: true,
+    flashlightShadows: false,
   },
   high: {
     level: 'high',
@@ -150,6 +159,7 @@ export const QUALITY_PRESETS: Record<QualityLevel, QualitySettings> = {
     terrainDetailSampler: true,
     heatHaze: true,
     particles: true,
+    flashlightShadows: true,
   },
   ultra: {
     level: 'ultra',
@@ -175,6 +185,7 @@ export const QUALITY_PRESETS: Record<QualityLevel, QualitySettings> = {
     terrainDetailSampler: true,
     heatHaze: true,
     particles: true,
+    flashlightShadows: true,
   },
 };
 

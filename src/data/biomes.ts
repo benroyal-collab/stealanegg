@@ -72,6 +72,8 @@ export interface BiomeLighting {
    */
   readonly contrast: number;
   readonly saturation: number;
+  /** Brightness of the star field, 0 for none. Every biome is played at night. */
+  readonly stars: number;
 }
 
 export interface BiomeTerrain {
@@ -140,6 +142,13 @@ export interface BiomeDef {
     readonly windLevel: number;
     readonly wildlifeIntervalSeconds: readonly [number, number];
     readonly wildlifePitch: readonly [number, number];
+    /**
+     * What calls out of the dark. Every biome is played at night, so the
+     * wildlife is the night's: an owl in the wood, a loon's wail across the
+     * lake, a far-off howl over the dunes. Spooky, and every one of them a
+     * real animal minding its own business.
+     */
+    readonly nightCall: 'owl' | 'loon' | 'howl';
   };
   /** Palette used by the UI so menus recolour with the biome. */
   readonly uiAccent: string;
@@ -168,33 +177,37 @@ export const BIOME_DEFS: Record<BiomeId, BiomeDef> = {
     }),
     signatureMechanic: 'Wide sightlines and generous cover. The game teaches itself here.',
     lighting: {
-      // Low enough to rake long shadows through the birches, high enough that
-      // the ground still receives real light. Below about 12 degrees the
-      // terrain's N.L term collapses and the whole floor goes to mud.
-      sunElevation: 15,
+      /*
+       * Night. The "sun" is the moon: a cold key low enough to rake long
+       * shadows through the birches, high enough that the ground still
+       * catches it. Fog closes the wood in to forty-odd metres, so what is
+       * out there is heard and glimpsed before it is seen -- and the
+       * ranger's torch becomes the thing a child steers by.
+       */
+      sunElevation: 24,
       sunAzimuth: 108,
-      sunColour: '#ffd2a0',
-      sunIntensity: 6.2,
-      skyTint: '#8fb4cc',
-      horizonTint: '#f3cfa4',
-      groundTint: '#66714c',
-      // Ambient buys shape in the shadows; too much of it and the sun stops
-      // reading at all. 0.45 leaves shadows blue and legible without going
-      // black, which is what dawn under a canopy actually looks like.
-      ambientIntensity: 0.45,
-      // Fog is matched to the horizon tint, not to a neutral grey. A mismatch
-      // draws a hard band where the terrain's fade meets the sky dome.
-      fogColour: '#e2d3bc',
-      fogDensity: 0.0055,
-      turbidity: 4.2,
-      rayleigh: 2.6,
-      mieCoefficient: 0.008,
-      mieDirectionalG: 0.82,
-      exposure: 1.0,
-      volumetricStrength: 0.85,
-      bloomIntensity: 0.42,
-      contrast: 0.14,
-      saturation: 0.13,
+      sunColour: '#b8ccef',
+      sunIntensity: 1.6,
+      skyTint: '#0c1828',
+      horizonTint: '#26364a',
+      groundTint: '#121812',
+      // Just enough fill that shadows keep their shape rather than going to
+      // a black hole a child cannot read.
+      ambientIntensity: 0.38,
+      // Matched to the horizon, or the terrain's fade draws a band against
+      // the dome.
+      fogColour: '#1a2433',
+      fogDensity: 0.022,
+      turbidity: 2.0,
+      rayleigh: 1.0,
+      mieCoefficient: 0.006,
+      mieDirectionalG: 0.9,
+      exposure: 1.4,
+      volumetricStrength: 0.6,
+      bloomIntensity: 0.85,
+      contrast: 0.12,
+      saturation: -0.22,
+      stars: 1.0,
     },
     terrain: {
       size: 150,
@@ -275,8 +288,9 @@ export const BIOME_DEFS: Record<BiomeId, BiomeDef> = {
       bedFrequency: 320,
       bedQ: 0.8,
       windLevel: 0.16,
-      wildlifeIntervalSeconds: [3.5, 9],
+      wildlifeIntervalSeconds: [7, 16],
       wildlifePitch: [900, 2400],
+      nightCall: 'owl',
     },
     uiAccent: '#8fbf72',
     uiInk: '#eaf3e2',
@@ -303,31 +317,32 @@ export const BIOME_DEFS: Record<BiomeId, BiomeDef> = {
     }),
     signatureMechanic: 'Water drags at your legs. Reeds cut the Swan line of sight clean.',
     lighting: {
-      sunElevation: 21,
+      /*
+       * A drowned, misty night. Denser fog than the wood -- the mist is the
+       * biome -- and a pale moon high over the water, which is what lets the
+       * swan read as a ghost gliding out of it.
+       */
+      sunElevation: 30,
       sunAzimuth: 250,
-      sunColour: '#dbe8f5',
-      sunIntensity: 4.4,
-      skyTint: '#9cb8cc',
-      horizonTint: '#e4edf1',
-      groundTint: '#6b7a78',
-      // Higher than the Glade on purpose: mist scatters light in from every
-      // direction, so Mirrormere genuinely is a flatter-lit place.
-      ambientIntensity: 0.85,
-      // Denser than the Glade on purpose -- the mist is the biome -- but well
-      // short of the soup that swallowed everything past 40 metres.
-      fogColour: '#dfe9ed',
-      fogDensity: 0.011,
-      turbidity: 8.5,
-      rayleigh: 1.4,
+      sunColour: '#c4d4e4',
+      sunIntensity: 1.3,
+      skyTint: '#0f1b24',
+      horizonTint: '#303f47',
+      groundTint: '#151d1d',
+      // Mist scatters light in from everywhere, so it is flatter-lit.
+      ambientIntensity: 0.38,
+      fogColour: '#26333a',
+      fogDensity: 0.03,
+      turbidity: 5.0,
+      rayleigh: 0.8,
       mieCoefficient: 0.02,
-      mieDirectionalG: 0.76,
-      exposure: 1.05,
-      volumetricStrength: 1.15,
-      bloomIntensity: 0.5,
-      // Gentler: the mist is the point here, and crushing it turns a
-      // deliberately soft biome into a postcard.
-      contrast: 0.09,
-      saturation: 0.08,
+      mieDirectionalG: 0.8,
+      exposure: 1.45,
+      volumetricStrength: 0.9,
+      bloomIntensity: 0.9,
+      contrast: 0.1,
+      saturation: -0.3,
+      stars: 0.45,
     },
     terrain: {
       size: 165,
@@ -397,8 +412,9 @@ export const BIOME_DEFS: Record<BiomeId, BiomeDef> = {
       bedFrequency: 180,
       bedQ: 1.2,
       windLevel: 0.1,
-      wildlifeIntervalSeconds: [4, 11],
+      wildlifeIntervalSeconds: [9, 20],
       wildlifePitch: [500, 1500],
+      nightCall: 'loon',
     },
     uiAccent: '#7fb6c4',
     uiInk: '#e6f1f4',
@@ -424,31 +440,33 @@ export const BIOME_DEFS: Record<BiomeId, BiomeDef> = {
     }),
     signatureMechanic: 'Almost no cover. It hunts by sound, so plan around your own noise.',
     lighting: {
-      sunElevation: 28,
+      /*
+       * A harvest moon: huge, low and orange over the dunes, throwing long
+       * shadows off every rock and ruin. Clear desert air, so the least fog
+       * and the most stars of the three.
+       */
+      sunElevation: 17,
       sunAzimuth: 300,
-      sunColour: '#ffd196',
-      sunIntensity: 7.4,
-      skyTint: '#a6bfe0',
-      horizonTint: '#f8d8a8',
-      groundTint: '#a98a5e',
-      // Hard desert light: a strong key and a bright sand bounce, but very
-      // little sky fill. This is what gives the dunes their long shadows.
-      ambientIntensity: 0.55,
-      // Clear desert air. What little haze there is comes from the heat-shimmer
-      // pass, not from fog.
-      fogColour: '#efdcb8',
-      fogDensity: 0.0035,
-      turbidity: 6.0,
-      rayleigh: 1.9,
-      mieCoefficient: 0.012,
-      mieDirectionalG: 0.8,
-      exposure: 0.95,
-      volumetricStrength: 0.3,
-      bloomIntensity: 0.55,
-      // Already a high-contrast biome -- bare sand under a hard sun -- so it
-      // needs the least help of the three.
-      contrast: 0.07,
-      saturation: 0.1,
+      sunColour: '#e2b48e',
+      sunIntensity: 1.0,
+      skyTint: '#120e1c',
+      horizonTint: '#3a2a32',
+      groundTint: '#261d16',
+      ambientIntensity: 0.3,
+      fogColour: '#29212d',
+      fogDensity: 0.018,
+      turbidity: 2.2,
+      rayleigh: 1.1,
+      // A tight halo. Wider and the moon's glow became an orange ceiling
+      // with the ruins cut out of it.
+      mieCoefficient: 0.004,
+      mieDirectionalG: 0.93,
+      exposure: 1.4,
+      volumetricStrength: 0.4,
+      bloomIntensity: 0.85,
+      contrast: 0.12,
+      saturation: -0.14,
+      stars: 1.25,
     },
     terrain: {
       size: 180,
@@ -529,8 +547,9 @@ export const BIOME_DEFS: Record<BiomeId, BiomeDef> = {
       bedFrequency: 120,
       bedQ: 0.6,
       windLevel: 0.34,
-      wildlifeIntervalSeconds: [6, 16],
+      wildlifeIntervalSeconds: [12, 26],
       wildlifePitch: [700, 1900],
+      nightCall: 'howl',
     },
     uiAccent: '#e0a860',
     uiInk: '#f7ead6',

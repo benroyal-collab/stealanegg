@@ -57,6 +57,7 @@ uniform float uRayleigh;
 uniform float uMieCoefficient;
 uniform float uMieG;
 uniform float uSunIntensity;
+uniform float uStars;
 
 const float PI = 3.141592653589793;
 
@@ -86,9 +87,29 @@ void main() {
   sky *= (0.55 + rayleigh * 0.9) * (1.0 + opticalDepth * 0.02);
   sky += uSunTintFromMie(mie);
 
-  // The sun disc itself, with a soft edge so bloom has something to grab.
-  float sunDisc = smoothstep(0.9993, 0.99985, cosTheta);
-  vec3 sun = vec3(1.0, 0.92, 0.78) * sunDisc * uSunIntensity * 14.0;
+  /*
+   * The moon. Every biome is played at night, so the light source in the
+   * sky is a moon: drawn larger than life, the way films frame it, with a
+   * crisp edge for bloom to catch and a mottled face so it reads as a moon
+   * rather than a lamp.
+   */
+  // About three degrees across: large, as film frames it, but short of the
+  // first draft's six, which filled a corner of the Dunes sky.
+  float moonDisc = smoothstep(0.99955, 0.99966, cosTheta);
+  float maria = 0.72 + 0.28 * skyNoise(dir * 90.0);
+  vec3 sun = uSunColour * moonDisc * maria * uSunIntensity * 9.0;
+
+  /*
+   * Stars, hashed onto a fine grid over the dome. Static on purpose: a
+   * twinkle is a flicker, and nothing in this game flickers. They fade out
+   * towards the horizon, where the fog and the haze would hide them.
+   */
+  vec3 cell = dir * 170.0;
+  float h = skyHash(floor(cell));
+  float point = smoothstep(0.42, 0.0, length(fract(cell) - 0.5));
+  float star = step(0.9968, h) * point * smoothstep(0.02, 0.3, up) * (1.0 - moonDisc);
+  vec3 stars = vec3(0.86, 0.9, 1.0) * star * uStars * (0.5 + 2.5 * fract(h * 791.0));
+  sky += stars;
 
   // Ground bounce, so image-based lighting has a floor colour.
   float below = smoothstep(0.0, -0.28, up);
@@ -104,6 +125,22 @@ const SKY_HELPERS = /* glsl */ `
 uniform vec3 uSunColour;
 vec3 uSunTintFromMie(float mie) {
   return uSunColour * mie * 2.4;
+}
+float skyHash(vec3 p) {
+  p = fract(p * 0.3183099 + 0.1);
+  p *= 17.0;
+  return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+float skyNoise(vec3 p) {
+  vec3 i = floor(p);
+  vec3 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(
+    mix(mix(skyHash(i), skyHash(i + vec3(1, 0, 0)), f.x),
+        mix(skyHash(i + vec3(0, 1, 0)), skyHash(i + vec3(1, 1, 0)), f.x), f.y),
+    mix(mix(skyHash(i + vec3(0, 0, 1)), skyHash(i + vec3(1, 0, 1)), f.x),
+        mix(skyHash(i + vec3(0, 1, 1)), skyHash(i + vec3(1, 1, 1)), f.x), f.y),
+    f.z);
 }
 `;
 
@@ -127,6 +164,7 @@ function buildSkyMaterial(lighting: BiomeLighting, sunDirection: Vector3): Shade
       uMieCoefficient: { value: lighting.mieCoefficient },
       uMieG: { value: lighting.mieDirectionalG },
       uSunIntensity: { value: lighting.sunIntensity },
+      uStars: { value: lighting.stars },
     },
   });
 }

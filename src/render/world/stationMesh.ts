@@ -525,3 +525,79 @@ export function penGeometry(): BufferGeometry {
 
   return mergeColouredParts(parts);
 }
+
+/* ------------------------------------------------------------------------ */
+
+/**
+ * Lamplit windows for the cabin and the round hut.
+ *
+ * At night the sanctuary is the one warm place in a cold, dark map, and lit
+ * windows are the oldest way of saying "someone is home". Built in each
+ * building's own space so they turn with it.
+ */
+export function cabinWindowGlow(): BufferGeometry {
+  return mergeColouredParts([
+    part(new BoxGeometry(0.3, 0.28, 0.02), '#ffd6a0', [0.56, 0.95, 0.885]),
+  ]);
+}
+
+export function hutWindowGlow(): BufferGeometry {
+  // A small round window on the hut's flank, where the studs leave a gap.
+  const a = Math.PI * 0.62;
+  return mergeColouredParts([
+    part(
+      new CylinderGeometry(0.14, 0.14, 0.02, 14),
+      '#ffd6a0',
+      [Math.sin(a) * 0.89, 0.78, Math.cos(a) * 0.89],
+      [Math.PI / 2, a, 0],
+    ),
+  ]);
+}
+
+/** Radius of the lantern ring, just inside the clearing's edge. */
+export const LANTERN_RING = 9.6;
+
+/**
+ * Where the lanterns stand, as angles round the clearing from +Z. None sits
+ * near the Z axis, which is the walk from the spawn to nest zero.
+ */
+export const LANTERN_ANGLES = [30, 90, 150, 210, 270, 330].map((d) => (d * Math.PI) / 180);
+
+/**
+ * Lantern posts round the clearing, as one buffer, and their glass as
+ * another. Hooked arms point in towards the middle, so the light falls on
+ * the clearing rather than on the wood outside it.
+ */
+export function lanternGeometry(): { body: BufferGeometry; glow: BufferGeometry } {
+  const body: ColouredPart[] = [];
+  const glow: ColouredPart[] = [];
+  for (const a of LANTERN_ANGLES) {
+    const x = Math.sin(a) * LANTERN_RING;
+    const z = Math.cos(a) * LANTERN_RING;
+    // Unit vector towards the centre.
+    const ix = -Math.sin(a);
+    const iz = -Math.cos(a);
+    const hx = x + ix * 0.42;
+    const hz = z + iz * 0.42;
+    body.push(
+      part(new CylinderGeometry(0.06, 0.08, 2.3, 8), WOOD_DARK, [x, 1.15, z]),
+      part(new BoxGeometry(0.2, 0.12, 0.2), STONE_DARK, [x, 0.06, z]),
+      limb([x, 2.2, z], [hx, 2.26, hz], 0.03, WOOD_DARK),
+      // Lantern: a cap, a base and four corner bars round the glass.
+      part(new ConeGeometry(0.14, 0.12, 4), LAMP, [hx, 2.12, hz], [0, a + Math.PI / 4, 0]),
+      part(new BoxGeometry(0.16, 0.03, 0.16), LAMP, [hx, 1.84, hz], [0, a, 0]),
+    );
+    for (const [cx, cz] of [
+      [-1, -1],
+      [-1, 1],
+      [1, -1],
+      [1, 1],
+    ] as const) {
+      const ox = (cx * Math.cos(a) + cz * Math.sin(a)) * 0.07;
+      const oz = (-cx * Math.sin(a) + cz * Math.cos(a)) * 0.07;
+      body.push(part(new BoxGeometry(0.018, 0.24, 0.018), LAMP, [hx + ox, 1.97, hz + oz]));
+    }
+    glow.push(part(new BoxGeometry(0.12, 0.2, 0.12), '#ffc27a', [hx, 1.97, hz], [0, a, 0]));
+  }
+  return { body: mergeColouredParts(body), glow: mergeColouredParts(glow) };
+}

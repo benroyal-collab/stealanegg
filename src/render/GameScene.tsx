@@ -16,6 +16,7 @@ import { InputManager } from '../systems/input';
 import { useGame } from '../state/store';
 import { PlayerController } from './player/PlayerController';
 import { PlayerAvatar } from './player/PlayerAvatar';
+import { Flashlight } from './player/Flashlight';
 import { playerRef } from './player/playerRuntime';
 import { Biome, useTerrainField } from './world/Biome';
 import { sampleHeight } from './world/terrain';
@@ -178,6 +179,7 @@ export function GameScene(): React.ReactElement {
       </Physics>
 
       <PlayerAvatar />
+      <Flashlight shadows={quality.flashlightShadows} />
 
       <PostChain
         quality={quality}
