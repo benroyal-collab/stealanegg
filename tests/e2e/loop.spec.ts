@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import { STATIONS } from '../../src/render/world/stationLayout';
 import { bootGame, drive, hold, pressPlay, settle, stopMoving } from './helpers';
 
 /**
@@ -214,15 +215,29 @@ test('the full loop runs end to end and the save round-trips', async ({ page }) 
       console.log(`home ${leg}: x=${state.x.toFixed(1)} z=${state.z.toFixed(1)}`);
       if (distance < 4) break;
       /*
-       * Still on the floor? Wait until up. The "grab it back" prompt is not
-       * offered mid-tumble, so checking for it then and walking on meant the
-       * test left the egg lying where it fell and went home empty-handed.
+       * Knocked over? Then the egg is on the ground where we fell. Wait out
+       * the tumble, then wait for the "grab it back" prompt and take it.
+       *
+       * Waiting for the prompt, not just for the tumble: the avatar is back
+       * on its feet a moment before the loop's own tumble clock runs out, and
+       * the prompt is withheld until then. Looking once as the avatar stood
+       * up, seeing nothing and walking on is how this test used to go home
+       * empty-handed.
        */
       if (state.stance === 'tumbling') {
-        await hold(page, 600);
+        await stopMoving(page);
+        let recovered = false;
+        for (let wait = 0; wait < 16 && !recovered; wait++) {
+          await hold(page, 250);
+          if ((await prompt.count()) === 0) continue;
+          if (!/grab it back/i.test((await prompt.textContent()) ?? '')) continue;
+          await page.evaluate(() => window.__eggheist?.setVirtualInput({ interact: true }));
+          await hold(page, 400);
+          recovered = true;
+        }
         continue;
       }
-      // Dropped it? Pick it up before carrying on, the way a player would.
+      // Dropped it some other way? Pick it up before carrying on.
       if ((await prompt.count()) > 0 && /grab it back/i.test((await prompt.textContent()) ?? '')) {
         await page.evaluate(() => window.__eggheist?.setVirtualInput({ interact: true }));
         await hold(page, 400);
@@ -238,12 +253,23 @@ test('the full loop runs end to end and the save round-trips', async ({ page }) 
     await stopMoving(page);
 
     // --- deposit ----------------------------------------------------------
-    // Nudge around the incubator until the deposit prompt appears. Short
-    // nudges: it is a 3.2 metre window and a longer step walks through it.
-    const nudges = [{ moveY: -1 }, { moveX: -0.7, moveY: -0.7 }, { moveX: 0.7 }, { moveY: 1 }];
+    /*
+     * Walk to the incubator itself, in short steps, until the deposit prompt
+     * appears. This used to nudge in a fixed pattern around the origin, which
+     * drifted along -Z and only found the incubator by luck once it moved off
+     * the centre line to x = -2.6; a run that arrived home a metre to the
+     * right never got within reach and reported the loop as broken.
+     */
+    const [ix, , iz] = STATIONS.find((station) => station.id === 'incubator')!.position;
     for (let i = 0; i < 24; i++) {
-      const nudge = nudges[i % nudges.length]!;
-      if (await stepAndTry(page, prompt, nudge, /put the egg in/i)) return true;
+      const here = await page.evaluate(() => window.__eggheist?.sample() ?? null);
+      if (here === null) break;
+      const dx = ix - here.x;
+      const dz = iz - here.z;
+      const d = Math.max(0.001, Math.hypot(dx, dz));
+      // Close enough and still no prompt: circle it rather than stand still.
+      const step = d > 1.2 ? { moveX: dx / d, moveY: dz / d } : { moveX: -dz / d, moveY: dx / d };
+      if (await stepAndTry(page, prompt, step, /put the egg in/i)) return true;
     }
     await stopMoving(page);
     return false;
