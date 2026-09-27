@@ -745,23 +745,104 @@ input[type='range'] {
   gap: 14px;
   padding: 24px;
   text-align: center;
+  overflow: hidden;
   background:
-    radial-gradient(ellipse at 50% 30%, rgba(143, 191, 114, 0.16), transparent 62%),
-    linear-gradient(180deg, #16211a, #0b120e);
+    radial-gradient(ellipse at 72% 16%, rgba(190, 210, 240, 0.18), transparent 38%),
+    linear-gradient(180deg, #07101c 0%, #0c1a26 58%, #05080c 100%);
+}
+
+/* Everything in front of the night scene. */
+.title > :not(.title__night) {
+  position: relative;
+  z-index: 1;
+}
+
+.title__night {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.title__moon {
+  position: absolute;
+  top: 9%;
+  left: 72%;
+  width: clamp(56px, 9vw, 110px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 35%, #f2f4f0, #c8d0d6 62%, #a9b3bb);
+  box-shadow: 0 0 60px 18px rgba(200, 216, 240, 0.22);
+}
+
+.title__mist {
+  position: absolute;
+  inset: auto -20% 8% -20%;
+  height: 46%;
+  background:
+    radial-gradient(ellipse at 20% 70%, rgba(150, 170, 190, 0.16), transparent 55%),
+    radial-gradient(ellipse at 65% 60%, rgba(150, 170, 190, 0.12), transparent 50%),
+    radial-gradient(ellipse at 90% 80%, rgba(150, 170, 190, 0.14), transparent 45%);
+  animation: title-mist 48s ease-in-out infinite alternate;
+}
+
+@keyframes title-mist {
+  from {
+    transform: translateX(-4%);
+  }
+  to {
+    transform: translateX(4%);
+  }
+}
+
+.title__trees {
+  position: absolute;
+  inset: auto 0 0 0;
+  width: 100%;
+  height: 34%;
+  fill: #03060a;
+}
+
+/* Two glowing dots. The glow is the eyeshine the guardians have in game. */
+.title__eyes {
+  position: absolute;
+  width: 26px;
+  height: 7px;
+  background:
+    radial-gradient(circle at 4px 50%, #ffb45a 2.5px, transparent 3.5px),
+    radial-gradient(circle at 22px 50%, #ffb45a 2.5px, transparent 3.5px);
+  filter: drop-shadow(0 0 5px rgba(255, 170, 80, 0.9));
+  animation: title-blink 7s ease-in-out infinite;
+}
+
+/* Open for almost the whole cycle, a slow blink, open again. */
+@keyframes title-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.1);
+  }
 }
 
 .title__crest {
   width: 96px;
   height: 120px;
   border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
-  background: linear-gradient(160deg, #f6e7c8, #c9a86b);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+  background: radial-gradient(circle at 36% 30%, #f6ecd6, #cdb68a 60%, #8c7650);
+  box-shadow:
+    0 0 50px 8px rgba(210, 222, 240, 0.16),
+    0 18px 40px rgba(0, 0, 0, 0.6);
 }
 
 .title h1 {
   margin: 6px 0 0;
-  font-size: clamp(2rem, 6vw, 3.4rem);
-  letter-spacing: 0.5px;
+  font-size: clamp(2.2rem, 6.5vw, 3.8rem);
+  letter-spacing: 1.5px;
+  text-shadow:
+    0 0 18px rgba(200, 216, 240, 0.25),
+    0 3px 10px rgba(0, 0, 0, 0.8);
 }
 
 .title__tag {
