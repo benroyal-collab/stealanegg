@@ -10,7 +10,10 @@ are a junior ranger recovering scattered eggs, incubating them, releasing the
 hatchlings into habitats, and spending visitor donations on gear that lets you
 reach wilder biomes.
 
-Three biomes ship: Whisper Glade, Mirrormere, Amber Dunes.
+Three biomes ship: Whisper Glade, Mirrormere, Amber Dunes. All three are
+played at night, and the tone is spooky — a horror-film look (moonlight, fog,
+a torch, eyes in the dark, a heartbeat under pursuit) pitched at the age range:
+dread, never gore, never a flash. See "Nightfall" in DECISIONS.md.
 
 ## The three laws this codebase is built around
 

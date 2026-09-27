@@ -8,6 +8,10 @@ them. Recover eggs, incubate them safely, release the hatchlings into your
 habitats, and let visitor donations fund better gear so you can reach the
 wilder zones.
 
+It is played at night. Moonlight, fog, a torch beam, eyes in the dark and a
+heartbeat when something is on your heels: a horror-film mood pitched at the
+age range. Dread, never gore, and nothing ever flashes.
+
 Nobody is harmed. Nothing is destroyed. Guardians _shoo_ you away — they
 never hurt you, and every egg ends up safe.
 
@@ -15,14 +19,14 @@ never hurt you, and every egg ends up safe.
 
 ## Screenshots
 
-|                                                                 |                                                               |
-| --------------------------------------------------------------- | ------------------------------------------------------------- |
-| ![Whisper Glade](docs/shots/glade-high.png)                     | ![Mirrormere](docs/shots/biome-mirrormere.png)                |
-| **Whisper Glade** — dawn woodland, the tutorial by design       | **Mirrormere** — misty lake, reeds break the Swan's sightline |
-| ![Amber Dunes](docs/shots/biome-dunes.png)                      | ![Quality presets](docs/shots/glade-low.png)                  |
-| **Amber Dunes** — open sand, almost no cover, plan around sound | **Low preset** — the same place on integrated graphics        |
-| ![The ranger](docs/shots/ranger.png)                            | ![Ultra preset](docs/shots/glade-ultra.png)                   |
-| **The ranger** — parametric, no rig and no imported mesh        | **Ultra preset** — three shadow cascades and volumetric light |
+|                                                                |                                                               |
+| -------------------------------------------------------------- | ------------------------------------------------------------- |
+| ![Whisper Glade](docs/shots/glade-high.png)                    | ![Mirrormere](docs/shots/biome-mirrormere.png)                |
+| **Whisper Glade** — moonlit wood, the lantern-lit sanctuary    | **Mirrormere** — misty lake, reeds break the Swan's sightline |
+| ![Amber Dunes](docs/shots/biome-dunes.png)                     | ![Quality presets](docs/shots/glade-low.png)                  |
+| **Amber Dunes** — harvest moon, almost no cover, plan by sound | **Low preset** — the same place on integrated graphics        |
+| ![The ranger](docs/shots/ranger.png)                           | ![Ultra preset](docs/shots/glade-ultra.png)                   |
+| **The ranger** — parametric, no rig and no imported mesh       | **Ultra preset** — three shadow cascades and moonlight shafts |
 
 `docs/shots/` also has Whisper Glade at all four quality presets, which is
 the M2 gate.
@@ -191,8 +195,8 @@ Target: locked 60fps at 1080p on integrated graphics.
 
 | Budget            | Limit           | Measured at High | Measured at Low |
 | ----------------- | --------------- | ---------------- | --------------- |
-| Draw calls        | ≤ 450           | **261**          | 126             |
-| Triangles         | ≤ 1.2M          | **876k**         | 321k            |
+| Draw calls        | ≤ 450           | **293**          | 138             |
+| Triangles         | ≤ 1.2M          | **1.04M**        | 329k            |
 | Initial JS bundle | ≤ 250KB gzipped | **85KB**         | 85KB            |
 | CPU frame         | ≤ 6ms           | not measured     | not measured    |
 | GPU frame         | ≤ 12ms          | not measured     | not measured    |

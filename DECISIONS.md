@@ -801,6 +801,101 @@ restores the unperturbed normal on the leaf part of any tree with a trunk, so
 canopies keep the faceting of their own geometry, which is what reads as
 clumps of leaves.
 
+## Nightfall: the horror-film look
+
+Brief from the owner: realistic, and scary — "think horror movie". The audience
+is still eight to twelve, and every hard rule in CLAUDE.md still holds: nothing
+gets hurt, nothing flashes above 3 Hz, nothing is signalled by colour alone. So
+the target is Goosebumps rather than a slasher: dread, darkness and things
+watching you, with no gore, no jump-scare flashes and nobody harmed.
+
+Light does most of that work, and it is also the cheapest route to looking
+real. So the pass is almost entirely lighting, grade and sound.
+
+- **Every biome is played at night.** The sun rig is now a moon: a cold, low
+  key that still casts the cascaded shadows. Each biome gets its own:
+  - **Glade:** a pale blue moon over the wood;
+  - **Mirrormere:** a high moon in dense mist;
+  - **Dunes:** a low orange harvest moon.
+
+  The fog is dark and dense enough to close the world in to forty-odd metres.
+  The sky shader gained a star field and a mottled moon disc. The stars are
+  static on purpose, because a twinkle is a flicker. Low-poly geometry
+  reads as far more real in the dark: fog and night hide exactly the distant
+  faceting that gave it away by day.
+
+- **A torch.** The ranger carries a flashlight that follows the camera:
+  - a warm spot light;
+  - a faint additive shaft, so it reads as held light in fog rather than a
+    patch on the ground;
+  - shadows at High and Ultra.
+
+  It is the single strongest horror device there is — everything outside the
+  beam is a guess — and it never flickers.
+
+- **Eyeshine.** Guardians' cartoon eyes and brows became dark eyeballs under a
+  heavy brow ridge, with a glowing tapetum. The glow is unlit and unfogged, so
+  two points of light in the dark are the first thing you see of a guardian.
+  It brightens from patrol to alert to chase, which is fair warning as well as
+  menace, and goes dark when a guardian is asleep. The palettes went natural
+  and dark:
+  - a near-black copper hen;
+  - a pale ghost of a swan;
+  - a near-black scorpion that fluoresces faintly teal, as real scorpions do
+    under UV.
+- **Grade and dread.** A new `NightGradeEffect` does three things:
+  - a split tone, cold shadows and warm light;
+  - lifted film blacks;
+  - a vignette that closes in and drains colour from the edges as
+    `pursuitPressure` rises.
+
+  Under pursuit the vignette swells gently in time with a heartbeat, at
+  1.1–1.9 Hz and in the periphery only, and switched off under reduced motion.
+  Grain is heavier, as a night shoot would be.
+
+- **Home is the warm place.** The sanctuary has six lanterns round its edge,
+  lit windows in the cabin and the hut, and one warm point light. The wild is
+  lit by the moon and your torch alone. The safe zone and the warm zone are
+  the same place, so a child running back through the dark can see exactly
+  where safety starts.
+- **Vision cones** faded to a soft wash that is strongest at the guardian's
+  feet. Drawn flat and unlit, at night they glowed on the ground like lit slabs.
+- **Sound:**
+  - a low tritone drone under the wind, swelling as a guardian closes;
+  - a lub-dub heartbeat under pursuit, beating with the vignette;
+  - night calls in place of daytime chirps: an owl, a loon, a distant howl;
+  - a chase layer re-voiced as a minor-second cluster under a tritone.
+
+  The heartbeat is a registered cue with a caption. Like footsteps it is
+  continuous, and its on-screen twin is the pulsing vignette.
+
+- **Title screen:** a moonlit wood with drifting mist, a pine treeline and
+  three pairs of eyes that blink every seven seconds.
+
+Cost: High went from 261 to 293 draw calls and from 876k to 1.04M triangles.
+Almost all of that is the torch's shadow pass, which re-draws whatever the
+cone touches, and is why torch shadows stop at High. Both figures are inside
+the budget.
+
+The loop gate needed two fixes it had been getting away without:
+
+- **Waiting for "grab it back".** After a tumble it now waits for the prompt
+  rather than for the avatar to stand up, because the loop's tumble clock
+  outlasts the animation by a moment.
+- **Walking to the incubator.** Its deposit step walks to where the incubator
+  actually is, instead of nudging in a fixed pattern around the origin, which
+  only found the incubator by luck once it moved off the centre line.
+
+The station layout moved to a plain module (`stationLayout.ts`) so the test
+can read it without loading a renderer.
+
+What this is not: photoreal. "Realistic like a AAA sports game" means scanned
+materials, sculpted and rigged characters and a content pipeline, and this
+project's rule is no binary assets — everything generated. Within that rule,
+light, fog, grade and sound are where the realism is. If the rule is ever
+relaxed for CC0 textures and models, that is the next step, and it is a
+decision for the owner rather than an implementation detail.
+
 ## Performance — measuring the budget properly
 
 ### Reading the counters at all
