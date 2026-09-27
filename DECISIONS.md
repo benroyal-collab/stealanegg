@@ -896,6 +896,43 @@ light, fog, grade and sound are where the realism is. If the rule is ever
 relaxed for CC0 textures and models, that is the next step, and it is a
 decision for the owner rather than an implementation detail.
 
+### The first real-hardware night: a cream-white sky
+
+The first playtest of the night build, on a Mac, showed the sky and every dark
+surface rendered near-white, stars as black dots, and the lit trees and
+lanterns looking right. Every screenshot the gates had taken looked correct.
+
+The cause was the stock `BrightnessContrast` effect, carried over from the
+daytime grade. It pivots about 0.5 in linear light, so anything darker than
+roughly 0.03 comes out negative. By day almost nothing is that dark. At night
+most of the frame is: a debug pass painting negative pixels magenta turned the
+whole sky, every shadowed side and most of the foliage magenta. Negative
+colours then reach the sRGB encode after tone mapping, which takes a `pow` of
+the colour, and `pow` of a negative number is undefined in GLSL. SwiftShader
+and Mesa's llvmpipe both return something harmless, so neither CI nor a second
+software renderer reproduced it. The Apple GPU did not, and it blew those
+pixels out.
+
+The fix:
+
+- Contrast and saturation moved into `NightGradeEffect`. Contrast is now a
+  power curve about mid-grey, which cannot produce a negative.
+- The grade clamps its input and its output, and zeroes NaNs.
+- The grade is the last effect, so nothing runs between its clamp and the
+  tone mapper.
+
+`tests/unit/shaders.test.ts` reads the source for the two traps, because no
+renderer available to CI will ever fail on them:
+
+- **No `<BrightnessContrast>` in the chain, and the grade is last and clamps.**
+- **No `smoothstep` with falling edges**, which is also undefined. It
+  immediately found one in the sky shader and one in the heat haze, both now
+  written as `1.0 - smoothstep(low, high, x)`.
+
+The lesson for this project: when a shader touches values that can be
+negative, zero or out of range, the software rasterisers are not evidence it
+works. Clamp at the boundary, and read the spec rather than the screenshot.
+
 ## Performance — measuring the budget properly
 
 ### Reading the counters at all

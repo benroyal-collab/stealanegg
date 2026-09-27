@@ -106,17 +106,19 @@ void main() {
    */
   vec3 cell = dir * 170.0;
   float h = skyHash(floor(cell));
-  float point = smoothstep(0.42, 0.0, length(fract(cell) - 0.5));
+  // smoothstep's edges must rise: reversed edges are undefined in GLSL,
+  // and GPUs genuinely disagree about what they return.
+  float point = 1.0 - smoothstep(0.0, 0.42, length(fract(cell) - 0.5));
   float star = step(0.9968, h) * point * smoothstep(0.02, 0.3, up) * (1.0 - moonDisc);
   vec3 stars = vec3(0.86, 0.9, 1.0) * star * uStars * (0.5 + 2.5 * fract(h * 791.0));
   sky += stars;
 
   // Ground bounce, so image-based lighting has a floor colour.
-  float below = smoothstep(0.0, -0.28, up);
+  float below = 1.0 - smoothstep(-0.28, 0.0, up);
   vec3 ground = uGroundTint * (0.28 + 0.25 * max(cosTheta, 0.0));
 
   vec3 colour = mix(sky + sun, ground, below);
-  gl_FragColor = vec4(max(colour, vec3(0.0)), 1.0);
+  gl_FragColor = vec4(clamp(colour, 0.0, 64.0), 1.0);
 }
 `;
 

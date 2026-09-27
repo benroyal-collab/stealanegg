@@ -57,8 +57,8 @@ uniform float uStrength;
 varying float vAlong;
 varying float vFacing;
 void main() {
-  float fade = pow(vAlong, 1.6);
-  float edge = pow(vFacing, 1.4);
+  float fade = pow(clamp(vAlong, 0.0, 1.0), 1.6);
+  float edge = pow(clamp(vFacing, 0.0, 1.0), 1.4);
   gl_FragColor = vec4(uColour * fade * edge * uStrength, 1.0);
 }
 `;

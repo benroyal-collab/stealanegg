@@ -1,5 +1,16 @@
 /**
- * The night grade and the dread vignette, in one pass.
+ * The grade and the dread vignette, in one pass.
+ *
+ * **Contrast and saturation** live here rather than in the stock
+ * BrightnessContrast and HueSaturation effects. The stock contrast pivots
+ * about 0.5 in linear light, which pushes anything darker than about 0.03
+ * below zero. By day almost nothing is that dark and nobody noticed. At night
+ * most of the frame is, and negative colours reach the final sRGB encode,
+ * where `pow` of a negative number is undefined. The software rasterisers
+ * the tests run on happen to return something sensible; an Apple GPU returned
+ * garbage, and the sky and every dark surface came out cream-white on the
+ * first real-hardware playtest. Here contrast is a power curve about mid-grey,
+ * which cannot produce a negative, and the output is clamped regardless.
  *
  * **The grade** is the horror-film split tone: cold blue-teal in the
  * shadows, warm where the torch and the sanctuary lanterns land, and blacks
@@ -24,10 +35,21 @@ uniform vec3 uShadowTint;
 uniform vec3 uHighlightTint;
 uniform float uVignette;
 uniform float uDread;
+uniform float uContrast;
+uniform float uSaturation;
 
 void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-  vec3 c = inputColor.rgb;
+  // Anything upstream that went negative or non-finite stops here.
+  vec3 c = clamp(inputColor.rgb, 0.0, 65000.0);
+  if (any(isnan(inputColor.rgb))) c = vec3(0.0);
+
+  // Contrast: a power curve about mid-grey. Steeper through the midtones,
+  // and zero stays zero -- it can never go below it.
+  c = 0.18 * pow(c / 0.18 + 1e-6, vec3(1.0 + uContrast));
+
+  // Saturation, towards or away from the pixel's own luminance.
   float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+  c = max(mix(vec3(l), c, 1.0 + uSaturation), 0.0);
 
   // Split tone: cold in the shadows, warm in the light.
   vec3 tint = mix(uShadowTint, uHighlightTint, smoothstep(0.02, 0.5, l));
@@ -48,7 +70,7 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
   float grey = dot(c, vec3(0.2126, 0.7152, 0.0722));
   c = mix(c, vec3(grey), edge * uDread * 0.65);
 
-  outputColor = vec4(c, inputColor.a);
+  outputColor = vec4(clamp(c, 0.0, 65000.0), inputColor.a);
 }
 `;
 
@@ -68,6 +90,8 @@ export class NightGradeEffect extends Effect {
         ['uHighlightTint', new Uniform(new Vector3(1.1, 1.0, 0.86))],
         ['uVignette', new Uniform(0.42)],
         ['uDread', new Uniform(0)],
+        ['uContrast', new Uniform(0)],
+        ['uSaturation', new Uniform(0)],
       ]),
     });
   }
@@ -76,6 +100,14 @@ export class NightGradeEffect extends Effect {
   setPressure(pressure: number, pulse: boolean): void {
     this.pressure = pressure;
     this.pulse = pulse;
+  }
+
+  /** The biome's grade, from `lighting.contrast` and `lighting.saturation`. */
+  setGrade(contrast: number, saturation: number): void {
+    const c = this.uniforms.get('uContrast');
+    const s = this.uniforms.get('uSaturation');
+    if (c !== undefined) c.value = contrast;
+    if (s !== undefined) s.value = saturation;
   }
 
   set vignette(value: number) {

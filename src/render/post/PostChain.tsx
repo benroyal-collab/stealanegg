@@ -24,8 +24,6 @@ import {
   DepthOfField,
   EffectComposer,
   GodRays,
-  BrightnessContrast,
-  HueSaturation,
   Noise,
   SMAA,
   SSAO,
@@ -79,6 +77,10 @@ export function PostChain({
   useEffect(() => {
     grade.vignette = quality.vignette ? 0.42 : 0.2;
   }, [grade, quality.vignette]);
+
+  useEffect(() => {
+    grade.setGrade(lighting.contrast, lighting.saturation);
+  }, [grade, lighting.contrast, lighting.saturation]);
 
   const hazeStrength = heatHaze && quality.heatHaze && !reducedMotion ? 0.0016 : 0;
   useEffect(() => {
@@ -214,21 +216,12 @@ export function PostChain({
       )}
 
       {/*
-        The grade, last before the vignette.
-
-        ACES rolls the highlights off correctly and leaves the midtones flat,
-        so without this the frame reads as an ungraded log image -- which is
-        most of what "amateurish" means once the geometry and the lighting are
-        already fine. Contrast puts the blacks back under the trees;
-        saturation stops the palette washing out into the fog.
-
-        Both come from the biome, because the three want different amounts:
-        see `contrast` and `saturation` in biomes.ts.
+        The grade, last in the chain: contrast and saturation from the biome,
+        the night split tone, and the vignette that closes in under pursuit.
+        One pass, and the only thing between it and the tone mapper is a
+        clamp -- see NightGradeEffect for why the stock contrast effect had to
+        go.
       */}
-      <BrightnessContrast brightness={0} contrast={lighting.contrast} />
-      <HueSaturation hue={0} saturation={lighting.saturation} />
-
-      {/* The night grade and the vignette that closes in under pursuit. */}
       <primitive object={grade} />
     </EffectComposer>
   );

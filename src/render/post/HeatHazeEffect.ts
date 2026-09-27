@@ -25,7 +25,7 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
   }
 
   // Strongest just below the horizon, gone by the top of the frame.
-  float band = smoothstep(0.85, 0.35, uv.y) * smoothstep(0.0, 0.18, uv.y);
+  float band = (1.0 - smoothstep(0.35, 0.85, uv.y)) * smoothstep(0.0, 0.18, uv.y);
 
   float wobble = sin(uv.y * 190.0 + uTime * 2.6) * 0.5
                + sin(uv.y * 91.0 - uTime * 1.7) * 0.5;
