@@ -12,7 +12,7 @@
 
 import { useFrame } from '@react-three/fiber';
 import { forwardRef, useEffect, useMemo, useRef } from 'react';
-import { DoubleSide, MathUtils, type Group, type Mesh } from 'three';
+import { Color, DoubleSide, MathUtils, ShaderMaterial, type Group, type Mesh } from 'three';
 import type { GuardianState } from '../../sim/types';
 import type { GuardianInstance } from '../../systems/loop';
 import { buildGuardian, disposeGuardian, type GuardianSpecies } from './guardianMesh';
@@ -65,9 +65,34 @@ export function GuardianEntity({
   const icon = useRef<Group>(null);
   const bob = useRef(0);
   const menace = useRef(0);
+  const shine = useRef(EYESHINE.patrol);
 
   const rig = useMemo(() => buildGuardian(species, scale), [species, scale]);
   useEffect(() => () => disposeGuardian(rig), [rig]);
+
+  /*
+   * The cone fades out towards the edge of the guardian's sight instead of
+   * ending on a hard line. Drawn flat and unlit it was fine by day; at night
+   * it glowed on the ground like a lit slab, the brightest thing on screen.
+   * Now it is a soft wash that is strongest at the guardian's feet --
+   * readable, and part of the scene rather than pasted over it.
+   */
+  const coneMaterial = useMemo(
+    () =>
+      new ShaderMaterial({
+        vertexShader: CONE_VERTEX,
+        fragmentShader: CONE_FRAGMENT,
+        uniforms: {
+          uColour: { value: new Color(colourblindSafe).multiplyScalar(0.8) },
+          uOpacity: { value: 0.12 },
+        },
+        transparent: true,
+        depthWrite: false,
+        side: DoubleSide,
+      }),
+    [colourblindSafe],
+  );
+  useEffect(() => () => coneMaterial.dispose(), [coneMaterial]);
 
   useFrame((_state, rawDelta) => {
     const g = root.current;
@@ -152,6 +177,15 @@ export function GuardianEntity({
       }
     }
 
+    /*
+     * Eyeshine follows the guardian's mood: a dim watchful glow on patrol,
+     * brighter when it has noticed something, blazing -- bright enough to
+     * bloom -- when it is coming for you, and dark when it is asleep, which
+     * is the signal that the berries worked. A slow ramp, never a flash.
+     */
+    shine.current = MathUtils.damp(shine.current, EYESHINE[state], 5, dt);
+    rig.eyeMaterial.color.copy(rig.glowColour).multiplyScalar(shine.current);
+
     if (rig.tail !== null) {
       // Curls further over the back as it charges, and never stops swaying.
       rig.tail.rotation.x = MathUtils.damp(
@@ -177,10 +211,7 @@ export function GuardianEntity({
        * same saving on a real integrated GPU.
        */
       cone.current.visible = showVisionCone && state !== 'drowsy' && toCamera < CONE_DRAW_DISTANCE;
-      const material = cone.current.material as { opacity?: number };
-      if (material.opacity !== undefined) {
-        material.opacity = 0.1 + instance.alertness * 0.22;
-      }
+      coneMaterial.uniforms.uOpacity!.value = 0.12 + instance.alertness * 0.26;
     }
 
     // Swap the thought bubble as the state changes. Shape, never colour.
@@ -218,15 +249,7 @@ export function GuardianEntity({
             (visionConeDegrees * Math.PI) / 180,
           ]}
         />
-        <meshBasicMaterial
-          color={colourblindSafe}
-          transparent
-          // Updated per frame from the runtime; this is only the initial value.
-          opacity={0.1}
-          depthWrite={false}
-          side={DoubleSide}
-          toneMapped={false}
-        />
+        <primitive object={coneMaterial} attach="material" />
       </mesh>
 
       {/*
@@ -240,6 +263,37 @@ export function GuardianEntity({
     </group>
   );
 }
+
+/** Eyeshine brightness per state. Above about 1.5 it blooms. */
+const EYESHINE: Record<GuardianState, number> = {
+  patrol: 1.4,
+  alert: 2.6,
+  investigate: 2.6,
+  chase: 5,
+  giveUp: 1.6,
+  cooldown: 1.2,
+  drowsy: 0,
+};
+
+const CONE_VERTEX = /* glsl */ `
+varying vec2 vUv;
+void main() {
+  vUv = uv;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
+`;
+
+const CONE_FRAGMENT = /* glsl */ `
+uniform vec3 uColour;
+uniform float uOpacity;
+varying vec2 vUv;
+void main() {
+  // 0 at the guardian, 1 at the limit of its sight.
+  float r = length(vUv * 2.0 - 1.0);
+  float fade = 1.0 - smoothstep(0.3, 1.0, r);
+  gl_FragColor = vec4(uColour, uOpacity * fade);
+}
+`;
 
 /** Beyond this, a vision cone costs overdraw and tells the player nothing. */
 const CONE_DRAW_DISTANCE = 34;

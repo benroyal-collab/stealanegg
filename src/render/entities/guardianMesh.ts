@@ -34,8 +34,10 @@ import {
   CatmullRomCurve3,
   ConeGeometry,
   CylinderGeometry,
+  Color,
   Group,
   Mesh,
+  MeshBasicMaterial,
   MeshStandardMaterial,
   SphereGeometry,
   TubeGeometry,
@@ -81,8 +83,21 @@ export interface GuardianRig {
   armBeat: number;
   /** Top of the head at scale 1, so the thought bubble clears it. */
   height: number;
+  /**
+   * The eyeshine. Unlit and unfogged, so it reads in the dark from across
+   * the map; `GuardianEntity` drives its brightness from the guardian's
+   * state.
+   */
+  eyeMaterial: MeshBasicMaterial;
+  /** The eyeshine's colour at full brightness 1. */
+  glowColour: Color;
   owned: (BufferGeometry | Material)[];
 }
+
+/** What a species builder hands back, before the shared parts are added. */
+type Built = Omit<GuardianRig, 'root' | 'owned' | 'eyeMaterial' | 'glowColour'> & {
+  glow: { parts: ColouredPart[]; joint: Group; colour: string };
+};
 
 /* ------------------------------------------------------------------------ */
 /* Placement helpers                                                         */
@@ -116,45 +131,64 @@ function taperedTube(points: readonly V3[], from: number, to: number): BufferGeo
 }
 
 /**
- * Two eyes with a frown over them.
+ * Two eyes under a heavy brow.
  *
- * Big, set forward, with a catch of white around a dark pupil that looks
- * straight ahead -- at you. The brow is a small wedge angled down towards
- * the nose, and it is the difference between a bird that is patrolling and a
- * bird that is *cross with you*.
+ * Dark, glossy eyeballs set forward so the stare lands on the player, each
+ * under a ridge of bone angled down towards the beak -- the supraorbital
+ * ridge that makes an eagle look fierce, and the realistic version of the
+ * cartoon frown these guardians used to wear.
+ *
+ * The part that glows is built separately by `eyeGlow`, because it needs a
+ * material of its own.
  */
 function eyes(
   centre: V3,
   spread: number,
   eyeRadius: number,
-  palette: { white: string; pupil: string; brow: string },
+  palette: { eyeball: string; brow: string },
 ): ColouredPart[] {
   const parts: ColouredPart[] = [];
   for (const side of [-1, 1] as const) {
     const x = centre[0] + side * spread;
     const [, y, z] = centre;
-    // Turned out a little, the way a bird's eyes sit, but the pupil points
-    // forward so the stare lands on the player.
     const yaw = side * 0.5;
-    parts.push(part(new SphereGeometry(eyeRadius, 12, 10), palette.white, [x, y, z]));
-    parts.push(
-      part(new SphereGeometry(eyeRadius * 0.56, 10, 8), palette.pupil, [
-        x + side * eyeRadius * 0.12,
-        y - eyeRadius * 0.05,
-        z + eyeRadius * 0.58,
-      ]),
-    );
+    parts.push(part(new SphereGeometry(eyeRadius, 12, 10), palette.eyeball, [x, y, z]));
     parts.push(
       part(
-        new CapsuleGeometry(eyeRadius * 0.28, eyeRadius * 1.5, 3, 8),
+        new CapsuleGeometry(eyeRadius * 0.4, eyeRadius * 1.3, 3, 8),
         palette.brow,
-        [x - side * eyeRadius * 0.1, y + eyeRadius * 0.95, z + eyeRadius * 0.3],
+        [x - side * eyeRadius * 0.1, y + eyeRadius * 0.85, z + eyeRadius * 0.25],
         // Lay it sideways, drop the inner end, then turn it with the face.
-        [0, yaw * 0.6, Math.PI / 2 - side * 0.42],
+        [0, yaw * 0.6, Math.PI / 2 - side * 0.38],
       ),
     );
   }
   return parts;
+}
+
+/**
+ * Eyeshine: the tapetum glow every night hunter has, and the image every
+ * horror film reaches for -- two points of light in the dark, looking at you.
+ *
+ * It is also the fairest possible warning. In fog and at night a guardian's
+ * body is hard to see, but its eyes are not: they are unlit by the scene,
+ * ignore the fog, and brighten as it goes from patrolling to hunting.
+ */
+function eyeGlow(centre: V3, spread: number, eyeRadius: number): ColouredPart[] {
+  return ([-1, 1] as const).map((side) =>
+    part(new SphereGeometry(eyeRadius * 0.62, 10, 8), '#ffffff', [
+      centre[0] + side * spread + side * eyeRadius * 0.1,
+      centre[1] - eyeRadius * 0.04,
+      centre[2] + eyeRadius * 0.52,
+    ]),
+  );
+}
+
+/** Attach the glowing part of the eyes to a joint. */
+function glowMesh(parts: ColouredPart[], material: Material, owned: BufferGeometry[]): Mesh {
+  const geometry = mergeColouredParts(parts);
+  owned.push(geometry);
+  return new Mesh(geometry, material);
 }
 
 /** One mesh per joint, sharing the guardian's single material. */
@@ -175,26 +209,28 @@ function joint(position: V3): Group {
 /* Broody Hen                                                                */
 /* ------------------------------------------------------------------------ */
 
+/*
+ * A dark copper hen -- the colouring of a real Marans rather than a
+ * picture-book brown one. Nearly black in moonlight, with the red comb and
+ * the copper hackles the only things that catch the torch.
+ */
 const HEN = {
-  body: '#a3542a',
-  bodyDark: '#83401f',
-  breast: '#c98848',
-  hackle: '#d39a4c',
-  tail: '#35291f',
-  tailSheen: '#2b302a',
-  wingTip: '#5e321a',
-  comb: '#c2382a',
-  beak: '#e3aa3a',
-  leg: '#d9a441',
-  white: '#f1e7d0',
-  pupil: '#1d1813',
-  brow: '#4a2412',
+  body: '#3a2418',
+  bodyDark: '#24160e',
+  breast: '#553220',
+  hackle: '#8a5426',
+  tail: '#17130f',
+  tailSheen: '#1c2a22',
+  wingTip: '#1e140d',
+  comb: '#9e2a1e',
+  beak: '#a88a4a',
+  leg: '#8c7440',
+  eyeball: '#120e0a',
+  brow: '#24160e',
+  glow: '#ff8a30',
 } as const;
 
-function buildHen(
-  material: Material,
-  owned: BufferGeometry[],
-): Omit<GuardianRig, 'root' | 'owned'> {
+function buildHen(material: Material, owned: BufferGeometry[]): Built {
   const bodyY = 0.74;
 
   /*
@@ -340,6 +376,7 @@ function buildHen(
     arms,
     armStyle: 'wing',
     tail: null,
+    glow: { parts: eyeGlow([0, 0.18, 0.13], 0.085, 0.052), joint: head, colour: HEN.glow },
     lean: 0.3,
     charge: -0.18,
     thrust: 0.12,
@@ -354,23 +391,23 @@ function buildHen(
 /* Sentinel Swan                                                             */
 /* ------------------------------------------------------------------------ */
 
-/* Not pure white: the lake throws a lot of light and a #fff swan blooms. */
+/*
+ * Not pure white: the moon on the lake would clip it. Pale grey-white reads
+ * as white in the dark and lets the swan loom out of the mist like a ghost.
+ */
 const SWAN = {
-  body: '#e9ece8',
-  shade: '#d2d8d6',
-  wingTip: '#bfc7c9',
-  beak: '#df7428',
-  mask: '#25221f',
-  leg: '#2c2926',
-  white: '#f3efe3',
-  pupil: '#1a1714',
-  brow: '#25221f',
+  body: '#d8dbd7',
+  shade: '#bec4c3',
+  wingTip: '#a6aeb0',
+  beak: '#c4642a',
+  mask: '#1c1a18',
+  leg: '#221f1d',
+  eyeball: '#110f0d',
+  brow: '#1c1a18',
+  glow: '#c8ffd8',
 } as const;
 
-function buildSwan(
-  material: Material,
-  owned: BufferGeometry[],
-): Omit<GuardianRig, 'root' | 'owned'> {
+function buildSwan(material: Material, owned: BufferGeometry[]): Built {
   const bodyY = 0.7;
 
   const bodyGeo = mergeColouredParts([
@@ -485,6 +522,7 @@ function buildSwan(
     arms,
     armStyle: 'wing',
     tail: null,
+    glow: { parts: eyeGlow([0, 0.905, 0.19], 0.064, 0.034), joint: head, colour: SWAN.glow },
     lean: 0.2,
     charge: 0.42,
     thrust: 0.06,
@@ -499,22 +537,26 @@ function buildSwan(
 /* Dune Scorpion                                                             */
 /* ------------------------------------------------------------------------ */
 
+/*
+ * Near-black chitin. Real scorpions glow blue-green under ultraviolet, and
+ * this one does faintly under the moon -- see `SCORPION_FLUORESCENCE`.
+ */
 const SCORPION = {
-  shell: '#bf8246',
-  band: '#8a582c',
-  under: '#dab076',
-  leg: '#6c4826',
-  claw: '#a8683a',
-  bulb: '#5a3a22',
-  white: '#f2e8d4',
-  pupil: '#1c1712',
-  brow: '#3a2414',
+  shell: '#3a2c22',
+  band: '#241a14',
+  under: '#5a4630',
+  leg: '#2a1f16',
+  claw: '#3e2c1e',
+  bulb: '#1a120c',
+  eyeball: '#0e0b09',
+  brow: '#1a120c',
+  glow: '#6affe6',
 } as const;
 
-function buildScorpion(
-  material: Material,
-  owned: BufferGeometry[],
-): Omit<GuardianRig, 'root' | 'owned'> {
+/** A faint teal self-glow over the whole scorpion, like chitin under UV. */
+const SCORPION_FLUORESCENCE = '#0b2e2a';
+
+function buildScorpion(material: Material, owned: BufferGeometry[]): Built {
   const bodyY = 0.42;
 
   const bodyGeo = mergeColouredParts([
@@ -659,6 +701,7 @@ function buildScorpion(
     arms,
     armStyle: 'claw',
     tail,
+    glow: { parts: eyeGlow([0, 0.19, 0.4], 0.12, 0.075), joint: body, colour: SCORPION.glow },
     lean: 0.08,
     charge: 0,
     thrust: 0,
@@ -671,10 +714,7 @@ function buildScorpion(
 
 /* ------------------------------------------------------------------------ */
 
-const BUILDERS: Record<
-  GuardianSpecies,
-  (material: Material, owned: BufferGeometry[]) => Omit<GuardianRig, 'root' | 'owned'>
-> = {
+const BUILDERS: Record<GuardianSpecies, (material: Material, owned: BufferGeometry[]) => Built> = {
   hen: buildHen,
   swan: buildSwan,
   scorpion: buildScorpion,
@@ -688,17 +728,22 @@ export function buildGuardian(species: GuardianSpecies, scale = 1): GuardianRig 
    */
   const material = new MeshStandardMaterial({
     vertexColors: true,
-    roughness: species === 'scorpion' ? 0.62 : 0.8,
+    roughness: species === 'scorpion' ? 0.5 : 0.8,
     roughnessMap: roughnessMap(`guardian-${species}`, 0.8, 0.12, 128),
+    ...(species === 'scorpion' ? { emissive: new Color(SCORPION_FLUORESCENCE) } : {}),
   });
   const geometries: BufferGeometry[] = [];
-  const rig = BUILDERS[species](material, geometries);
+  const { glow, ...rig } = BUILDERS[species](material, geometries);
+
+  const glowColour = new Color(glow.colour);
+  const eyeMaterial = new MeshBasicMaterial({ color: glowColour.clone(), fog: false });
+  glow.joint.add(glowMesh(glow.parts, eyeMaterial, geometries));
 
   const root = new Group();
   root.scale.setScalar(scale);
   root.add(rig.body, ...rig.legs);
 
-  return { ...rig, root, owned: [material, ...geometries] };
+  return { ...rig, root, eyeMaterial, glowColour, owned: [material, eyeMaterial, ...geometries] };
 }
 
 export function disposeGuardian(rig: GuardianRig): void {

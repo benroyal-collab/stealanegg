@@ -36,12 +36,12 @@ function measure(species: GuardianSpecies): {
 }
 
 describe('the guardians', () => {
-  it('each cost six draw calls or fewer, however much detail they carry', () => {
-    // The old builder was thirteen up close, times nine guardians, times
-    // every shadow cascade.
+  it('each cost seven draw calls or fewer, however much detail they carry', () => {
+    // Six joints and the eyeshine, which casts no shadow. The old builder
+    // was thirteen up close, times nine guardians, times every cascade.
     for (const species of SPECIES) {
       const { meshes, rig } = measure(species);
-      expect(meshes, species).toBeLessThanOrEqual(6);
+      expect(meshes, species).toBeLessThanOrEqual(7);
       disposeGuardian(rig);
     }
   });
@@ -92,7 +92,9 @@ describe('the guardians', () => {
     for (const species of SPECIES) {
       const rig = buildGuardian(species);
       rig.root.traverse((o) => {
-        if (!(o instanceof Mesh)) return;
+        // Albedo only. The eyeshine is light, not a surface, and its colour
+        // comes from its material rather than its vertices.
+        if (!(o instanceof Mesh) || o.material.vertexColors !== true) return;
         const attribute = o.geometry.attributes.color as BufferAttribute;
         for (let i = 0; i < attribute.count; i++) {
           colour.fromBufferAttribute(attribute, i);
